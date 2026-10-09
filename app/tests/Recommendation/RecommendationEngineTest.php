@@ -53,28 +53,32 @@ final class RecommendationEngineTest extends TestCase
 
     public function testCutsWhenEstimatedIndoorIsAboveTarget(): void
     {
-        // dehors 10,0 + écart 13,0 = 23,0 ≥ 19
+        // Relevé à 5 °C : écart +13. Par 10 °C, l'écart se réduit de 0,4 × 5 = 2 : +11, soit 21,0 ≥ 19.
         $result = $this->morning($this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), 10.0);
 
         self::assertSame(HeatingAction::Cut, $result->action);
-        self::assertSame(23.0, $result->estimatedIndoor);
+        self::assertSame(11.0, $result->delta);
+        self::assertSame(21.0, $result->estimatedIndoor);
         self::assertNull($result->setpoint());
     }
 
     public function testExactlyOnTargetCuts(): void
     {
-        // dehors 6,0 + écart 13,0 = 19,0 = cible : pas strictement en dessous.
-        $result = $this->morning($this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), 6.0);
+        // Au point du relevé (5 °C) l'estimation vaut 18,0 : égale à la cible, pas strictement en dessous.
+        $targets = self::week(['night' => 17.0, 'morning' => 18.0, 'afternoon' => 19.0, 'evening' => 20.0]);
+        $result = $this->engine->recommend([$this->forecastDay(['morning' => 5.0])], $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), $targets)[0]->forSlot(DaySlot::Morning);
 
+        self::assertSame(18.0, $result->estimatedIndoor);
         self::assertSame(HeatingAction::Cut, $result->action);
     }
 
     public function testOneTenthBelowTargetHeats(): void
     {
-        $result = $this->morning($this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), 5.9);
+        $targets = self::week(['night' => 17.0, 'morning' => 18.1, 'afternoon' => 19.0, 'evening' => 20.0]);
+        $result = $this->engine->recommend([$this->forecastDay(['morning' => 5.0])], $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), $targets)[0]->forSlot(DaySlot::Morning);
 
         self::assertSame(HeatingAction::Heat, $result->action);
-        self::assertSame(18.9, $result->estimatedIndoor);
+        self::assertSame(18.0, $result->estimatedIndoor);
     }
 
     public function testUsesTheDeltaOfTheSameSlot(): void
@@ -90,7 +94,7 @@ final class RecommendationEngineTest extends TestCase
         self::assertSame(5.0, $day->forSlot(DaySlot::Evening)->delta);
         self::assertSame(18.0, $day->forSlot(DaySlot::Morning)->estimatedIndoor);
         self::assertSame(HeatingAction::Heat, $day->forSlot(DaySlot::Morning)->action, '18,0 < 19 : on chauffe');
-        self::assertSame(10.0, $day->forSlot(DaySlot::Evening)->estimatedIndoor, 'Écart du soir (+5), et non celui du matin.');
+        self::assertSame(10.0, $day->forSlot(DaySlot::Evening)->estimatedIndoor, 'Écart du soir (+5, à 5 °C), et non celui du matin.');
     }
 
     public function testFallsBackToTheOverallDeltaWhenTheSlotHasNoReading(): void
@@ -100,9 +104,9 @@ final class RecommendationEngineTest extends TestCase
         $night = $this->engine->recommend([$this->forecastDay(['night' => 4.0])], $deltas, self::week())[0]->forSlot(DaySlot::Night);
 
         self::assertTrue($night->deltaIsFallback);
-        self::assertSame(13.0, $night->delta);
-        self::assertSame(17.0, $night->estimatedIndoor);
-        self::assertSame(HeatingAction::Cut, $night->action, '17,0 ≥ 17');
+        self::assertSame(13.4, $night->delta, 'Par 4 °C, 1 °C sous le relevé : l’écart grandit de 0,4.');
+        self::assertSame(17.4, $night->estimatedIndoor);
+        self::assertSame(HeatingAction::Cut, $night->action, '17,4 ≥ 17');
     }
 
     public function testUnknownWithoutAnyReading(): void
@@ -140,12 +144,14 @@ final class RecommendationEngineTest extends TestCase
 
     public function testNegativeDeltaAndFreezingOutdoor(): void
     {
-        // Véranda : écart −4,0 ; dehors −2,0 → dedans −6,0, très sous la cible.
+        // Véranda relevée en canicule : écart −4,0 à 34 °C. Par −2 °C, 36 °C plus froid, l'écart
+        // grandit de 0,4 × 36 = 14,4 : +10,4, soit 8,4 dedans, très sous la cible.
         $deltas = $this->deltas(['2026-01-10 08:00' => [34.0, 30.0]]);
 
         $result = $this->morning($deltas, -2.0);
 
-        self::assertSame(-6.0, $result->estimatedIndoor);
+        self::assertSame(10.4, $result->delta);
+        self::assertSame(8.4, $result->estimatedIndoor);
         self::assertSame(HeatingAction::Heat, $result->action);
     }
 
@@ -216,14 +222,25 @@ final class RecommendationEngineTest extends TestCase
         self::assertTrue($above->extrapolated);
     }
 
-    public function testMeanModelIsUsedWithoutEnoughReadingsAndSaysSo(): void
+    public function testTypicalSlopeIsUsedWithoutEnoughReadingsAndSaysSo(): void
     {
         $models = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
 
         $result = $this->morning($models, 5.0);
 
-        self::assertSame(ModelKind::Mean, $result->method);
-        self::assertSame(13.0, $result->delta);
+        self::assertSame(ModelKind::Typical, $result->method);
+        self::assertSame(13.0, $result->delta, 'Au point du relevé, l’écart mesuré.');
+        self::assertTrue($this->morning($models, 25.0)->extrapolated);
+    }
+
+    public function testAnEstimateStaysRealisticFarFromTheMeasuredTemperature(): void
+    {
+        // Un relevé à 8 °C, écart +9,3 ; prévision de 21 °C : l'écart se réduit, l'intérieur ne dépasse pas 26 °C.
+        $result = $this->morning($this->deltas(['2026-10-08 08:00' => [8.0, 17.3]]), 21.0);
+
+        self::assertSame(4.1, $result->delta);
+        self::assertSame(25.1, $result->estimatedIndoor);
+        self::assertTrue($result->extrapolated);
     }
 
     public function testOverallRegressionIsTheFallbackForASlotWithoutReadings(): void

@@ -6,9 +6,9 @@ namespace App\Calculation;
 
 enum ModelKind: string
 {
-    /** L'écart dépend de la température extérieure : écart = ordonnée + pente × extérieur. */
+    /** Les relevés dominent : la pente de l'écart est surtout celle qu'ils mesurent. */
     case Regression = 'regression';
 
-    /** Pas assez de relevés ou de variété : écart moyen constant. */
-    case Mean = 'mean';
+    /** Trop peu de relevés ou de variété : la pente est surtout la pente typique d'un logement sans chauffage. */
+    case Typical = 'typical';
 }

@@ -24,9 +24,10 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
   renseignés sur cinq, liste des relevés par jour avec écart et créneau.
 - **Écarts** : écart moyen intérieur − extérieur par lieu et par moment de la journée
   (matin, après-midi, soirée, nuit), et modèle retenu pour les recommandations.
-- **Modèle d'écart** : régression de l'écart sur la température extérieure, par créneau,
-  quand les relevés sont assez nombreux et variés ; sinon écart moyen, avec la raison
-  affichée.
+- **Modèle d'écart** : l'écart intérieur − extérieur dépend de la température extérieure
+  (il se réduit quand il fait doux). Par créneau, la pente est mesurée sur les relevés et
+  tirée vers la pente typique d'un logement non chauffé tant qu'ils sont peu nombreux ou
+  variés ; la page des écarts montre la formule et le poids des relevés.
 - **Réglages** : ville du foyer (recherche Open-Meteo) et températures visées par jour
   de la semaine et par moment de la journée.
 - **Prévisions** : température extérieure prévue sur quinze jours, par moment de la
@@ -36,6 +37,13 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
   prochains créneaux en tête de page ; avertissement pour les prévisions au-delà de sept
   jours, pour les résultats provisoires (moins de cinq jours de relevés) et pour les
   prévisions hors de la plage des températures relevées.
+
+### Corrigé
+
+- Une estimation irréaliste par temps doux : avec un seul relevé à 8 °C (écart +9,3 °C),
+  une prévision de 21 °C annonçait 30,3 °C dans le salon. L'écart se réduit désormais avec
+  la température (25 °C estimés), la température intérieure s'affiche à l'unité, et les
+  prévisions hors de la plage relevée restent signalées.
 
 ### Sécurité
 

@@ -63,7 +63,7 @@ final class DeltaControllerTest extends WebTestCase
         self::assertStringContainsString('Tous les lieux', $crawler->filter('table')->first()->filter('tfoot')->text());
     }
 
-    public function testExplainsTheMeanModelWhenThereAreTooFewReadings(): void
+    public function testExplainsTheTypicalSlopeWhenThereAreTooFewReadings(): void
     {
         $user = $this->createUser('a@example.com');
         $this->addReadings($user, 'Salon', [['2026-10-07 07:00', 5.0, 18.0], ['2026-10-08 08:00', 3.0, 18.0]]);
@@ -72,10 +72,11 @@ final class DeltaControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/ecarts');
 
         $model = $crawler->filter('#modele')->ancestors()->first()->text();
-        self::assertStringContainsString('Écart moyen', $model);
-        self::assertStringContainsString('Moins de 4 relevés à des instants distincts', $model);
+        self::assertStringContainsString('Pente typique', $model);
+        self::assertStringContainsString('Trop peu de relevés', $model);
+        self::assertStringContainsString('ils pèsent pour', $model);
         self::assertStringContainsString('Aucun relevé : le modèle de tous les créneaux est utilisé', $model);
-        self::assertStringNotContainsString('Régression', $model);
+        self::assertStringNotContainsString('Pente mesurée', $model);
     }
 
     public function testShowsTheRegressionFormulaWhenReadingsAreVariedEnough(): void
@@ -92,7 +93,8 @@ final class DeltaControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/ecarts');
 
         $model = $crawler->filter('#modele')->ancestors()->first()->text();
-        self::assertStringContainsString('Régression', $model);
+        self::assertStringContainsString('Pente mesurée', $model);
+        self::assertStringContainsString('Les relevés pèsent pour 78 % dans la pente', $model);
         self::assertStringContainsString('écart = 8,0 − 0,40 × T° extérieure', $model);
         self::assertStringContainsString('intérieur ≈ 8,0 + 0,60 × T° extérieure', $model);
         self::assertStringContainsString('2,0 à 14,0 °C', $model);

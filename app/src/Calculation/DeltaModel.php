@@ -6,17 +6,16 @@ namespace App\Calculation;
 
 /**
  * Modèle de l'écart intérieur − extérieur en fonction de la température extérieure :
- * écart(T) = ordonnée + pente × T. Pour un écart moyen constant, la pente est nulle.
+ * écart(T) = ordonnée + pente × T.
  */
 final readonly class DeltaModel
 {
     /** Marge, en °C, autour des températures mesurées au-delà de laquelle on extrapole. */
     public const EXTRAPOLATION_MARGIN = 3.0;
 
-    /** Raison pour laquelle la régression n'a pas pu être retenue. */
-    public const REFUSAL_FEW_SESSIONS = 'sessions';
-    public const REFUSAL_NARROW_RANGE = 'range';
-
+    /**
+     * @param float $dataWeight part des relevés dans la pente, de 0 (pente typique pure) à 1
+     */
     public function __construct(
         public ModelKind $kind,
         public float $intercept,
@@ -25,7 +24,7 @@ final readonly class DeltaModel
         public int $sessions,
         public float $outdoorMin,
         public float $outdoorMax,
-        public ?string $refusal = null,
+        public float $dataWeight,
     ) {
     }
 

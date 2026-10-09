@@ -57,7 +57,7 @@
 
     <section aria-labelledby="modele" class="mt-10">
         <h2 id="modele" class="mb-2 text-lg font-semibold">Modèle utilisé pour les recommandations</h2>
-        <p class="mb-4 max-w-3xl text-sm text-slate-700">Sans chauffage, l’intérieur suit le dehors de façon amortie : plus il fait froid dehors, plus l’écart grandit. Quand les relevés d’un créneau sont assez nombreux et pris à des températures assez variées (au moins {{ minSessions }} relevés à des instants distincts et {{ minSpread|number_format(0, ',') }} °C d’écart entre les extrêmes), l’outil ajuste l’écart sur la température extérieure. Sinon, il applique l’écart moyen, qui ne tient pas compte du froid prévu.</p>
+        <p class="mb-4 max-w-3xl text-sm text-slate-700">Sans chauffage, l’intérieur suit le dehors de façon amortie : plus il fait froid dehors, plus l’écart grandit, et il se réduit quand il fait doux. Un écart mesuré par temps froid ne vaut donc pas par temps doux. L’outil mesure cette pente sur vos relevés ; tant qu’ils sont peu nombreux ou pris à des températures proches, il la complète par la pente typique d’un logement sans chauffage ({{ typicalSlope|number_format(2, ',') }}), recalée sur vos mesures. Plus vos relevés sont nombreux et variés, plus la pente est la vôtre.</p>
 
         <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table class="w-full text-left text-sm">

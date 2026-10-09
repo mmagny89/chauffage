@@ -66,8 +66,9 @@ final class RecommendationControllerTest extends WebTestCase
 
     public function testShowsRecommendationsPerDayAndSlot(): void
     {
-        // Écart +10 partout ; dehors (double de test) : matin 8,5 / après-midi 14,5 / soirée 19,5 / nuit 7,5
-        // → dedans estimé 18,5 / 24,5 / 29,5 / 17,5 ; cibles 19 / 19 / 20 / 17.
+        // Relevés à 5 °C, écart +10 partout (un jour : pente typique −0,4) ; dehors (double de test) :
+        // matin 8,5 / après-midi 14,5 / soirée 19,5 / nuit 7,5 → écart 8,6 / 6,2 / 4,2 / 9,0, soit dedans
+        // 17,1 / 20,7 / 23,7 / 16,5 ; cibles 19 / 19 / 20 / 17.
         $user = $this->createUser('a@example.com', located: true);
         $this->addReadingsEverySlot($user, ['2026-10-08']);
         $this->client->loginUser($user);
@@ -82,12 +83,13 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertCount(15, $rows);
         $cells = $rows->first()->filter('td');
         self::assertStringContainsString('Chauffer à 19,0 °C', $cells->eq(0)->text());
-        self::assertStringContainsString('dedans ≈ 18,5 °C', $cells->eq(0)->text());
+        self::assertStringContainsString('dedans ≈ 17 °C', $cells->eq(0)->text());
         self::assertStringContainsString('Couper', $cells->eq(1)->text());
         self::assertStringContainsString('dehors 14,5 °C', $cells->eq(1)->text());
+        self::assertStringContainsString('dedans ≈ 21 °C', $cells->eq(1)->text());
         self::assertStringContainsString('Couper', $cells->eq(2)->text());
-        self::assertStringContainsString('Couper', $cells->eq(3)->text());
-        self::assertStringContainsString('dedans ≈ 17,5 °C', $cells->eq(3)->text());
+        self::assertStringContainsString('dedans ≈ 24 °C', $cells->eq(2)->text(), 'Pas 29,5 : l’écart se réduit quand il fait doux.');
+        self::assertStringContainsString('Chauffer à 17,0 °C', $cells->eq(3)->text(), 'Nuit : 16,5 sous la cible de 17.');
     }
 
     public function testUpcomingSlotsUseTheWordingOfTheBrief(): void
@@ -148,7 +150,7 @@ final class RecommendationControllerTest extends WebTestCase
         $user = $this->createUser('a@example.com', located: true);
         $this->addReadingsEverySlot($user, ['2026-10-08']);
         $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
-        $household->targetFor(\App\Enum\Weekday::Friday, \App\Enum\DaySlot::Morning)->setTemperature(18.0); // vendredi 9 : 18,5 ≥ 18, on coupe
+        $household->targetFor(\App\Enum\Weekday::Friday, \App\Enum\DaySlot::Morning)->setTemperature(17.0); // vendredi 9 : 17,1 ≥ 17, on coupe
         $this->em->flush();
         $this->client->loginUser($user);
 
@@ -169,13 +171,13 @@ final class RecommendationControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/recommandations');
 
         $rows = $crawler->filter('tbody tr');
-        $friday = $rows->eq(0)->filter('td')->eq(0)->text();   // matin, estimé 18,5
+        $friday = $rows->eq(0)->filter('td')->eq(0)->text();   // matin, estimé 17,1
         $saturday = $rows->eq(1)->filter('td')->eq(0)->text();
         self::assertStringContainsString('ven. 9 oct.', $rows->eq(0)->text());
         self::assertStringContainsString('sam. 10 oct.', $rows->eq(1)->text());
         self::assertStringContainsString('Chauffer à 19,0 °C', $friday);
         self::assertStringContainsString('visé 19,0 °C', $friday);
-        self::assertStringContainsString('Couper', $saturday, 'Samedi la cible est 17 : 18,5 suffit.');
+        self::assertStringContainsString('Couper', $saturday, 'Samedi la cible est 17 : 17,1 suffit.');
         self::assertStringContainsString('visé 17,0 °C', $saturday);
     }
 
@@ -196,8 +198,8 @@ final class RecommendationControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/recommandations');
 
         $cells = $crawler->filter('tbody tr')->first()->filter('td');
-        // Matin : 8,5 + (8 − 0,4 × 8,5 = 4,6) = 13,1
-        self::assertStringContainsString('dedans ≈ 13,1 °C', $cells->eq(0)->text());
+        // Matin : 8,5 + (8 − 0,4 × 8,5 = 4,6) = 13,1, affiché à l'unité
+        self::assertStringContainsString('dedans ≈ 13 °C', $cells->eq(0)->text());
         self::assertStringNotContainsString('hors plage mesurée', $cells->eq(0)->text());
         // Après-midi : 14,5 reste dans la marge (14 + 3) ; soirée : 19,5 la dépasse.
         self::assertStringNotContainsString('hors plage mesurée', $cells->eq(1)->text());

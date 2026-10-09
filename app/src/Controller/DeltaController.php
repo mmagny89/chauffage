@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Calculation\DeltaModelFitter;
 use App\Entity\User;
 use App\Enum\DaySlot;
 use App\Recommendation\RecommendationService;
@@ -32,8 +31,7 @@ final class DeltaController extends AbstractController
         return $this->render('delta/index.html.twig', [
             'report' => $analysis->report,
             'models' => $analysis->models,
-            'minSessions' => DeltaModelFitter::MIN_SESSIONS,
-            'minSpread' => DeltaModelFitter::MIN_SPREAD,
+            'typicalSlope' => \App\Calculation\DeltaModelFitter::TYPICAL_SLOPE,
             'slots' => DaySlot::chronological(),
             'daysDone' => $readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,

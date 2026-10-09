@@ -77,15 +77,21 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   murale locale, sans fuseau ; le futur et les doublons (lieu, instant) sont refusés.
 - **Lieux** : déclarés dans les réglages (30 au plus par foyer), noms uniques sans tenir compte
   de la casse. Supprimer un lieu supprime ses relevés (cascade en base).
-- **Écart** = intérieur − extérieur. Par créneau, `DeltaModelFitter` ajuste l'écart sur la
-  température extérieure (moindres carrés) si ≥ 4 relevés à des instants distincts **et** ≥ 3 °C
-  d'étendue ; pente bornée à [−1 ; 0], droite passant par le point moyen. Sinon écart moyen
-  constant, avec la raison. Un créneau sans relevé utilise le modèle de tous les créneaux
-  (signalé « écart général »).
+- **Écart** = intérieur − extérieur. Sans chauffage l'intérieur suit le dehors de façon amortie
+  (pente intérieur/extérieur ≈ 0,6) : **l'écart se réduit quand il fait doux**. Un écart constant
+  appliqué à une prévision douce annonçait 30 °C dans le salon (un relevé à 8 °C, +9,3, prévision
+  de 21 °C). `DeltaModelFitter` ajuste donc, par créneau, une droite écart = a + pente × T° extérieure :
+  moindres carrés **tirés vers la pente typique** −0,4 (`TYPICAL_SLOPE`), pente =
+  (Sxy + λ·typique) / (Sxx + λ) avec λ = 25 °C², bornée à [−0,9 ; −0,1], droite passant par le point
+  moyen. Un seul relevé, ou des relevés à des températures proches, donnent la pente typique ; des
+  relevés nombreux et variés donnent la leur. « Pente mesurée » si les relevés pèsent ≥ 50 % dans la
+  pente, « pente typique » sinon. Un créneau sans relevé utilise le modèle de tous les créneaux
+  (signalé « écart général »). Hypothèses à réviser avec des données réelles : −0,4 et λ.
 - **Recommandation** : intérieur estimé = prévision + écart du modèle à cette température.
   **Strictement sous la cible → chauffer à la cible ; à égalité ou au-dessus → couper.**
-  Cible = celle du jour de la semaine et du créneau. Prévision hors de la plage relevée (marge
-  3 °C) → « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »
+  Cible = celle du jour de la semaine et du créneau. La température intérieure s'affiche à l'unité
+  (une précision au dixième serait fausse). Prévision hors de la plage relevée (marge 3 °C) →
+  « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »
   sous 5 jours de relevés (`Calibration::DAYS_REQUIRED`).
 - **Prévisions** : 16 jours demandés à Open-Meteo, 15 affichés (pour que la 15ᵉ nuit soit
   complète) ; cache 1 h par position arrondie à 0,01°.
@@ -117,6 +123,10 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   `Clock::set(new MockClock(...))` fige l'heure ; DAMA isole la base ; Symfony réinitialise les
   gestionnaires de log entre deux requêtes (voir `AuditTrailTest`). Les clients HTTP sont
   remplacés par `FakeGeocoder` et `FakeForecastProvider` : aucun appel réseau.
+- **Worker figé après un rechargement** : après une rafale de modifications de fichiers (php-cs-fixer,
+  composer, éditions en série), le rechargement à chaud peut se bloquer (« force-killing thread on
+  reboot timeout » dans les journaux) ; seule `/health`, servie par Caddy, répond encore, donc le
+  conteneur reste « healthy ». Remède : `docker compose restart php`.
 - **PHPStan** lit le conteneur de dev : `cache:warmup --env=dev` si le cache est vide.
 - **Migrations** : réversibles, et reprennent les données existantes (voir l'ajout de
   `day_of_week` aux cibles) plutôt que de supposer une table vide.
