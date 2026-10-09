@@ -14,12 +14,12 @@
         <div class="mb-5">
             <label for="username" class="mb-1 block text-sm font-medium text-slate-800">Adresse email</label>
             <input type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus
-                   class="block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                   class="block w-full min-h-11 rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
         </div>
         <div class="mb-5">
             <label for="password" class="mb-1 block text-sm font-medium text-slate-800">Mot de passe</label>
             <input type="password" id="password" name="_password" autocomplete="current-password" required
-                   class="block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                   class="block w-full min-h-11 rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
         </div>
 
         {# Jeton « stateless » : la valeur est un marqueur que le contrôleur Stimulus csrf-protection remplace à l'envoi. #}

@@ -30,7 +30,7 @@
 
     {% if places|length >= 2 %}
         <nav aria-label="Vue des recommandations" class="mb-6 flex flex-wrap gap-2">
-            {% set tab = 'rounded-full border px-3 py-1 text-sm font-medium focus:outline-2 focus:outline-offset-2 focus:outline-slate-900' %}
+            {% set tab = 'inline-flex min-h-11 items-center rounded-full border px-4 py-1 text-sm font-medium focus:outline-2 focus:outline-offset-2 focus:outline-slate-900' %}
             <a href="{{ path('app_recommendations') }}" class="{{ tab }} {{ selected is null ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-500 bg-white text-slate-800 hover:bg-slate-100' }}"{% if selected is null %} aria-current="page"{% endif %}>Tout le foyer</a>
             {% for place in places %}
                 {% set current = selected is not null and selected.id == place.id %}

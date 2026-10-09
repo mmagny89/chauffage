@@ -231,6 +231,16 @@ final class PageQualityTest extends WebTestCase
 
     private function assertLinksAndButtonsHaveNames(Crawler $crawler): void
     {
+        // Les boutons d'action (hors boutons pleine largeur déjà hauts) déclarent une hauteur tactile d'au moins 44 px.
+        foreach ($crawler->filter('main button[type=submit]') as $button) {
+            \assert($button instanceof \DOMElement);
+            $class = $button->getAttribute('class');
+            self::assertTrue(
+                str_contains($class, 'min-h-11') || str_contains($class, 'py-2') || str_contains($class, 'py-3'),
+                \sprintf('Bouton « %s » trop petit pour le tactile.', trim($button->textContent)),
+            );
+        }
+
         foreach ($crawler->filter('a[href], button') as $element) {
             \assert($element instanceof \DOMElement);
             $name = trim($element->textContent) ?: $element->getAttribute('aria-label') ?: $element->getAttribute('title');

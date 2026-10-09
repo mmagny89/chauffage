@@ -39,9 +39,9 @@
         <div class="grow">
             <label for="q" class="mb-1 block text-sm font-medium text-slate-800">Rechercher une ville ou un code postal</label>
             <input type="search" id="q" name="q" value="{{ query }}" minlength="2" maxlength="80" required autocomplete="off"
-                   class="block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                   class="block w-full min-h-11 rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
         </div>
-        <button type="submit" class="rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Rechercher</button>
+        <button type="submit" class="min-h-11 rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Rechercher</button>
     </form>
 
     {% if searchError %}
@@ -61,7 +61,7 @@
                             <input type="hidden" name="latitude" value="{{ place.latitude }}">
                             <input type="hidden" name="longitude" value="{{ place.longitude }}">
                             <input type="hidden" name="timezone" value="{{ place.timezone }}">
-                            <button type="submit" class="rounded text-sm font-medium text-slate-900 underline underline-offset-2 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded px-2 text-sm font-medium text-slate-900 underline underline-offset-2 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
                                 Choisir<span class="sr-only"> {{ place.label }}</span>
                             </button>
                         </form>
@@ -88,13 +88,13 @@
                         <div class="grow">
                             <label for="lieu-{{ place.id }}" class="sr-only">Nom du lieu</label>
                             <input type="text" id="lieu-{{ place.id }}" name="name" value="{{ place.name }}" maxlength="80" required
-                                   class="block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-1.5 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                                   class="block w-full min-h-11 rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-1.5 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
                         </div>
-                        <button type="submit" class="rounded text-sm text-slate-800 underline underline-offset-2 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Renommer<span class="sr-only"> {{ place.name }}</span></button>
+                        <button type="submit" class="inline-flex min-h-11 items-center rounded px-2 text-sm text-slate-800 underline underline-offset-2 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Renommer<span class="sr-only"> {{ place.name }}</span></button>
                     </form>
                     <form method="post" action="{{ path('app_place_delete', {id: place.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('place-delete-' ~ place.id) }}">
-                        <button type="submit" class="rounded text-sm text-slate-800 underline underline-offset-2 hover:text-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Supprimer<span class="sr-only"> {{ place.name }}</span></button>
+                        <button type="submit" class="inline-flex min-h-11 items-center rounded px-2 text-sm text-slate-800 underline underline-offset-2 hover:text-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Supprimer<span class="sr-only"> {{ place.name }}</span></button>
                     </form>
                 </li>
             {% endfor %}
@@ -106,7 +106,7 @@
         <input type="hidden" name="_token" value="{{ csrf_token('place-add') }}">
         <label for="nouveau-lieu" class="mb-1 block text-sm font-medium text-slate-800">Ajouter un lieu</label>
         <select id="nouveau-lieu" name="choice" required data-place-target="select" data-action="change->place#toggle"
-                class="mb-3 block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                class="mb-3 block w-full min-h-11 rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
             <option value="">Choisir un lieu</option>
             {% for group, choices in placeChoices %}
                 <optgroup label="{{ group }}">
@@ -117,7 +117,7 @@
         <div data-place-target="custom" class="mb-3">
             <label for="nom-lieu" class="mb-1 block text-sm font-medium text-slate-800">Nom du lieu</label>
             <input type="text" id="nom-lieu" name="custom" maxlength="80" placeholder="Atelier, chambre 2…"
-                   class="block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                   class="block w-full min-h-11 rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
         </div>
         {% include 'partials/_button.html.twig' with {label: 'Ajouter ce lieu'} %}
     </form>
