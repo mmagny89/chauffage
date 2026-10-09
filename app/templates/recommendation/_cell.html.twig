@@ -1,0 +1,12 @@
+{% if item.action.value == 'unknown' %}
+    <span aria-label="pas de recommandation">—</span>
+{% else %}
+    {% if item.action.value == 'heat' %}
+        <span class="inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">Chauffer à {{ item.setpoint|number_format(1, ',') }} °C</span>
+    {% else %}
+        <span class="inline-block rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">Couper</span>
+    {% endif %}
+    <span class="mt-1 block text-xs text-slate-600">dehors {{ item.outdoor|number_format(1, ',') }} °C</span>
+    <span class="block text-xs text-slate-600">dedans ≈ {{ item.estimatedIndoor|number_format(1, ',') }} °C</span>
+    {% if item.deltaIsFallback %}<span class="block text-xs text-slate-500" title="Aucun relevé sur ce créneau : écart moyen de tous les créneaux">écart général</span>{% endif %}
+{% endif %}

@@ -34,6 +34,31 @@ enum DaySlot: string
         return self::fromHour((int) $dateTime->format('G'));
     }
 
+    /**
+     * Les créneaux dans l'ordre où ils se succèdent : la nuit d'un jour commence à 22 h
+     * ce jour-là, elle vient donc en dernier.
+     *
+     * @return list<self>
+     */
+    public static function chronological(): array
+    {
+        return [self::Morning, self::Afternoon, self::Evening, self::Night];
+    }
+
+    /**
+     * Heure de fin du créneau, en heures depuis minuit du jour auquel il se rattache
+     * (30 = 6 h le lendemain pour la nuit).
+     */
+    public function endsAtHour(): int
+    {
+        return match ($this) {
+            self::Morning => 12,
+            self::Afternoon => 18,
+            self::Evening => 22,
+            self::Night => 30,
+        };
+    }
+
     public function label(): string
     {
         return match ($this) {

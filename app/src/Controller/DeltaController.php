@@ -28,7 +28,7 @@ final class DeltaController extends AbstractController
 
         return $this->render('delta/index.html.twig', [
             'report' => $calculator->calculate($readings->findByHousehold($household)),
-            'slots' => DaySlot::cases(),
+            'slots' => DaySlot::chronological(),
             'daysDone' => $readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,
         ]);

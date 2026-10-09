@@ -65,10 +65,10 @@ final class ForecastControllerTest extends WebTestCase
         self::assertCount(4, $rows->first()->filter('td'));
 
         $first = $rows->first()->filter('td');
-        self::assertStringContainsString('7,5 °C', $first->eq(0)->text(), 'Nuit : 22 h, 23 h et 0 h à 5 h du lendemain.');
-        self::assertStringContainsString('8,5 °C', $first->eq(1)->text());
-        self::assertStringContainsString('14,5 °C', $first->eq(2)->text());
-        self::assertStringContainsString('19,5 °C', $first->eq(3)->text());
+        self::assertStringContainsString('8,5 °C', $first->eq(0)->text(), 'Matin : 6 h à 11 h.');
+        self::assertStringContainsString('14,5 °C', $first->eq(1)->text());
+        self::assertStringContainsString('19,5 °C', $first->eq(2)->text());
+        self::assertStringContainsString('7,5 °C', $first->eq(3)->text(), 'Nuit, en dernier : 22 h, 23 h et 0 h à 5 h du lendemain.');
         self::assertSelectorNotExists('td span[title]', 'Quinze nuits complètes : aucun créneau tronqué.');
     }
 

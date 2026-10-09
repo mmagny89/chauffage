@@ -5,5 +5,6 @@
 {% block body %}
 <h1 class="mb-4 text-2xl font-semibold">Bienvenue</h1>
 <p class="mb-6 text-slate-700">Commencez par noter quelques relevés de température : l’outil en tirera l’écart entre l’intérieur et l’extérieur de chaque pièce.</p>
+<a href="{{ path('app_recommendations') }}" class="mr-3 inline-block rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Voir les recommandations</a>
 <a href="{{ path('app_readings') }}" class="inline-block rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Saisir des relevés</a>
 {% endblock %}

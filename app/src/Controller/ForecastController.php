@@ -42,7 +42,7 @@ final class ForecastController extends AbstractController
             'household' => $household,
             'located' => null !== $household->getLatitude(),
             'rows' => $rows,
-            'slots' => DaySlot::cases(),
+            'slots' => DaySlot::chronological(),
             'error' => $error,
         ]);
     }
