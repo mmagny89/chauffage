@@ -11,6 +11,7 @@ use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
 use App\Enum\DaySlot;
+use App\Enum\Weekday;
 use App\Forecast\DayForecast;
 use App\Forecast\SlotForecast;
 use App\Recommendation\HeatingAction;
@@ -20,6 +21,16 @@ use PHPUnit\Framework\TestCase;
 final class RecommendationEngineTest extends TestCase
 {
     private const TARGETS = ['night' => 17.0, 'morning' => 19.0, 'afternoon' => 19.0, 'evening' => 20.0];
+
+    /**
+     * @param array<string, float> $perSlot
+     *
+     * @return array<int, array<string, float>>
+     */
+    private static function week(array $perSlot = self::TARGETS): array
+    {
+        return array_fill_keys(array_map(static fn (Weekday $d): int => $d->value, Weekday::cases()), $perSlot);
+    }
 
     private RecommendationEngine $engine;
 
@@ -72,7 +83,7 @@ final class RecommendationEngineTest extends TestCase
             '2026-10-08 20:00' => [5.0, 10.0],  // soirée  +5
         ]);
 
-        $day = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'evening' => 5.0])], $deltas, self::TARGETS)[0];
+        $day = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'evening' => 5.0])], $deltas, self::week())[0];
 
         self::assertSame(13.0, $day->forSlot(DaySlot::Morning)->delta);
         self::assertSame(5.0, $day->forSlot(DaySlot::Evening)->delta);
@@ -85,7 +96,7 @@ final class RecommendationEngineTest extends TestCase
     {
         $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
 
-        $night = $this->engine->recommend([$this->forecastDay(['night' => 4.0])], $deltas, self::TARGETS)[0]->forSlot(DaySlot::Night);
+        $night = $this->engine->recommend([$this->forecastDay(['night' => 4.0])], $deltas, self::week())[0]->forSlot(DaySlot::Night);
 
         self::assertTrue($night->deltaIsFallback);
         self::assertSame(13.0, $night->delta);
@@ -108,7 +119,7 @@ final class RecommendationEngineTest extends TestCase
     {
         $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
 
-        $day = $this->engine->recommend([$this->forecastDay([])], $deltas, self::TARGETS)[0];
+        $day = $this->engine->recommend([$this->forecastDay([])], $deltas, self::week())[0];
 
         foreach (DaySlot::cases() as $slot) {
             self::assertSame(HeatingAction::Unknown, $day->forSlot($slot)->action);
@@ -120,7 +131,7 @@ final class RecommendationEngineTest extends TestCase
         // Même température estimée de 18,5 : sous 19 (matin), au-dessus de 17 (nuit).
         $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.5]]); // écart +13,5 partout (repli)
 
-        $day = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'night' => 5.0])], $deltas, self::TARGETS)[0];
+        $day = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'night' => 5.0])], $deltas, self::week())[0];
 
         self::assertSame(HeatingAction::Heat, $day->forSlot(DaySlot::Morning)->action);
         self::assertSame(HeatingAction::Cut, $day->forSlot(DaySlot::Night)->action);
@@ -142,9 +153,26 @@ final class RecommendationEngineTest extends TestCase
         $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
         $day = new DayForecast(new \DateTimeImmutable('2026-10-09'), $this->slots(['night' => 4.0], incomplete: ['night']));
 
-        $night = $this->engine->recommend([$day], $deltas, self::TARGETS)[0]->forSlot(DaySlot::Night);
+        $night = $this->engine->recommend([$day], $deltas, self::week())[0]->forSlot(DaySlot::Night);
 
         self::assertFalse($night->forecastComplete);
+    }
+
+    public function testTargetDependsOnTheWeekday(): void
+    {
+        $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]); // +13
+        $targets = self::week();
+        $targets[Weekday::Saturday->value]['morning'] = 17.0; // week-end : plus bas
+
+        // Vendredi 9 et samedi 10 octobre 2026 : dehors 5,0 → dedans estimé 18,0.
+        $friday = new DayForecast(new \DateTimeImmutable('2026-10-09'), $this->slots(['morning' => 5.0]));
+        $saturday = new DayForecast(new \DateTimeImmutable('2026-10-10'), $this->slots(['morning' => 5.0]));
+        [$fri, $sat] = $this->engine->recommend([$friday, $saturday], $deltas, $targets);
+
+        self::assertSame(HeatingAction::Heat, $fri->forSlot(DaySlot::Morning)->action, '18,0 < 19 le vendredi');
+        self::assertSame(19.0, $fri->forSlot(DaySlot::Morning)->target);
+        self::assertSame(HeatingAction::Cut, $sat->forSlot(DaySlot::Morning)->action, '18,0 ≥ 17 le samedi');
+        self::assertSame(17.0, $sat->forSlot(DaySlot::Morning)->target);
     }
 
     public function testUpcomingStartsWithTheRunningSlot(): void
@@ -187,7 +215,7 @@ final class RecommendationEngineTest extends TestCase
 
     private function morning(DeltaReport $deltas, float $outdoor): \App\Recommendation\SlotRecommendation
     {
-        return $this->engine->recommend([$this->forecastDay(['morning' => $outdoor])], $deltas, self::TARGETS)[0]->forSlot(DaySlot::Morning);
+        return $this->engine->recommend([$this->forecastDay(['morning' => $outdoor])], $deltas, self::week())[0]->forSlot(DaySlot::Morning);
     }
 
     /**
@@ -243,6 +271,6 @@ final class RecommendationEngineTest extends TestCase
             $days[] = new DayForecast($date, $this->slots(['night' => 5.0, 'morning' => 5.0, 'afternoon' => 5.0, 'evening' => 5.0]));
         }
 
-        return $this->engine->recommend($days, $deltas, self::TARGETS);
+        return $this->engine->recommend($days, $deltas, self::week());
     }
 }

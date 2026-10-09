@@ -9,6 +9,7 @@ use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
 use App\Enum\DaySlot;
+use App\Enum\Weekday;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -23,13 +24,15 @@ final class ModelTest extends KernelTestCase
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
     }
 
-    public function testNewHouseholdHasADefaultTargetPerSlot(): void
+    public function testNewHouseholdHasADefaultTargetPerWeekdayAndSlot(): void
     {
         $household = new Household($this->user());
 
-        self::assertCount(\count(DaySlot::cases()), $household->getTargets());
-        self::assertSame(17.0, $household->targetFor(DaySlot::Night)->getTemperature());
-        self::assertSame(20.0, $household->targetFor(DaySlot::Evening)->getTemperature());
+        self::assertCount(\count(Weekday::cases()) * \count(DaySlot::cases()), $household->getTargets());
+        foreach (Weekday::cases() as $day) {
+            self::assertSame(17.0, $household->targetFor($day, DaySlot::Night)->getTemperature());
+            self::assertSame(20.0, $household->targetFor($day, DaySlot::Evening)->getTemperature());
+        }
     }
 
     public function testHouseholdLocationIsStoredAsDecimals(): void
@@ -45,7 +48,7 @@ final class ModelTest extends KernelTestCase
         self::assertSame('Lyon', $reloaded->getCity());
         self::assertSame(45.75, $reloaded->getLatitude());
         self::assertSame(4.85, $reloaded->getLongitude());
-        self::assertCount(4, $reloaded->getTargets());
+        self::assertCount(28, $reloaded->getTargets());
     }
 
     public function testReadingComputesDeltaAndSlot(): void

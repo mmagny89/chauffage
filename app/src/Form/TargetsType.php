@@ -19,6 +19,7 @@ final class TargetsType extends AbstractType
         foreach (DaySlot::cases() as $slot) {
             $builder->add($slot->value, NumberType::class, [
                 'label' => $slot->label(),
+                'invalid_message' => 'Saisissez une température en degrés.',
                 'html5' => true,
                 'scale' => 1,
                 'attr' => ['step' => '0.5', 'min' => HeatingTarget::MIN, 'max' => HeatingTarget::MAX, 'inputmode' => 'decimal'],

@@ -8,6 +8,7 @@ use App\Calculation\DeltaCalculator;
 use App\Calculation\DeltaReport;
 use App\Entity\Household;
 use App\Enum\DaySlot;
+use App\Enum\Weekday;
 use App\Forecast\ForecastService;
 use App\Repository\ReadingRepository;
 
@@ -33,8 +34,10 @@ final readonly class RecommendationService
     public function forHousehold(Household $household, ?DeltaReport $deltas = null): array
     {
         $targets = [];
-        foreach (DaySlot::cases() as $slot) {
-            $targets[$slot->value] = $household->targetFor($slot)->getTemperature();
+        foreach (Weekday::cases() as $day) {
+            foreach (DaySlot::cases() as $slot) {
+                $targets[$day->value][$slot->value] = $household->targetFor($day, $slot)->getTemperature();
+            }
         }
 
         return $this->engine->recommend(

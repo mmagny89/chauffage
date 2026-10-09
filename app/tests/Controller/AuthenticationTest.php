@@ -52,7 +52,7 @@ final class AuthenticationTest extends WebTestCase
 
         $household = self::getContainer()->get(HouseholdRepository::class)->findOneBy(['user' => $user]);
         self::assertNotNull($household, 'Un compte reçoit son foyer dès l’inscription.');
-        self::assertCount(4, $household->getTargets());
+        self::assertCount(28, $household->getTargets());
         self::assertNotSame(self::PASSWORD, $user->getPassword());
 
         // Mot de passe juste, adresse non confirmée : refusé.

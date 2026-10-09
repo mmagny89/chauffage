@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Enum\DaySlot;
+use App\Enum\Weekday;
 use App\Repository\HouseholdRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -14,7 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * Le foyer d'un compte : un compte, un foyer. Porte la localisation (pour les
- * prévisions) et les températures visées par créneau de la journée.
+ * prévisions) et les températures visées par jour de la semaine et par créneau.
  */
 #[ORM\Entity(repositoryClass: HouseholdRepository::class)]
 #[ORM\Table(name: 'household')]
@@ -56,8 +57,10 @@ class Household
         $this->user = $user;
         $this->targets = new ArrayCollection();
 
-        foreach (DaySlot::cases() as $slot) {
-            $this->targets->add(new HeatingTarget($this, $slot, $slot->defaultTarget()));
+        foreach (Weekday::cases() as $day) {
+            foreach (DaySlot::cases() as $slot) {
+                $this->targets->add(new HeatingTarget($this, $day, $slot, $slot->defaultTarget()));
+            }
         }
     }
 
@@ -109,14 +112,14 @@ class Household
         return $this->targets;
     }
 
-    public function targetFor(DaySlot $slot): HeatingTarget
+    public function targetFor(Weekday $day, DaySlot $slot): HeatingTarget
     {
         foreach ($this->targets as $target) {
-            if ($target->getSlot() === $slot) {
+            if ($target->getDayOfWeek() === $day && $target->getSlot() === $slot) {
                 return $target;
             }
         }
 
-        throw new \LogicException(\sprintf('Aucune température visée pour le créneau « %s ».', $slot->value));
+        throw new \LogicException(\sprintf('Aucune température visée pour « %s », créneau « %s ».', $day->key(), $slot->value));
     }
 }

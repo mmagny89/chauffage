@@ -66,7 +66,7 @@
             </table>
         </div>
         <p class="mt-3 text-sm text-slate-600">Lignes grisées : au-delà de 7 jours, les prévisions sont peu fiables. La nuit d’un jour va de 22 h ce jour-là à 6 h le lendemain. « Écart général » : aucun relevé sur ce créneau, l’écart moyen de tous les créneaux est utilisé.</p>
-        <p class="mt-1 text-sm text-slate-600">Températures visées : {% for slot in slots %}{{ slot.label|lower }} {{ household.targetFor(slot).temperature|number_format(1, ',') }} °C{{ not loop.last ? ', ' : '' }}{% endfor %} — <a href="{{ path('app_settings') }}" class="underline underline-offset-2">modifier</a>.</p>
+        <p class="mt-1 text-sm text-slate-600">La température visée dépend du jour de la semaine et du moment de la journée : <a href="{{ path('app_settings') }}" class="underline underline-offset-2">la modifier dans les réglages</a>.</p>
         <p class="mt-2 text-xs text-slate-500"><a href="https://open-meteo.com/" class="underline underline-offset-2">Weather data by Open-Meteo.com</a> (licence <a href="https://creativecommons.org/licenses/by/4.0/" class="underline underline-offset-2">CC BY 4.0</a>).</p>
     </section>
 {% endif %}

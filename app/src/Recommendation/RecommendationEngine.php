@@ -7,12 +7,13 @@ namespace App\Recommendation;
 use App\Calculation\DeltaReport;
 use App\Calculation\SlotDelta;
 use App\Enum\DaySlot;
+use App\Enum\Weekday;
 use App\Forecast\DayForecast;
 
 /**
  * Décide, pour chaque jour et créneau, s'il faut chauffer ou si on peut couper.
  *
- * Règle : température intérieure estimée = température extérieure prévue + écart moyen
+ * Règle : la température visée dépend du jour de la semaine et du créneau ; température intérieure estimée = température extérieure prévue + écart moyen
  * du foyer sur ce créneau (à défaut de relevé sur ce créneau, écart moyen tous créneaux
  * confondus, signalé). Si l'estimation est strictement sous la température visée, on
  * chauffe, à cette température ; sinon on coupe. Calcul pur, en dixièmes de degré entiers.
@@ -20,17 +21,19 @@ use App\Forecast\DayForecast;
 final class RecommendationEngine
 {
     /**
-     * @param list<DayForecast>       $days
-     * @param array<string, float>    $targets température visée par créneau, indexée par la valeur de DaySlot
+     * @param list<DayForecast>                $days
+     * @param array<int, array<string, float>> $targets température visée, indexée par le numéro du jour de la semaine (1 = lundi)
+     *                                                  puis par la valeur de DaySlot
      *
      * @return list<DayRecommendation>
      */
     public function recommend(array $days, DeltaReport $deltas, array $targets): array
     {
         return array_map(function (DayForecast $day) use ($deltas, $targets): DayRecommendation {
+            $dayTargets = $targets[Weekday::fromDate($day->date)->value];
             $slots = [];
             foreach (DaySlot::cases() as $slot) {
-                $slots[$slot->value] = $this->forSlot($day, $slot, $deltas, $targets[$slot->value]);
+                $slots[$slot->value] = $this->forSlot($day, $slot, $deltas, $dayTargets[$slot->value]);
             }
 
             return new DayRecommendation($day->date, $slots);

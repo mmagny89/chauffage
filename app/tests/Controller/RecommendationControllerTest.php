@@ -148,13 +148,35 @@ final class RecommendationControllerTest extends WebTestCase
         $user = $this->createUser('a@example.com', located: true);
         $this->addReadingsEverySlot($user, ['2026-10-08']);
         $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
-        $household->targetFor(\App\Enum\DaySlot::Morning)->setTemperature(18.0); // 18,5 ≥ 18 : on coupe
+        $household->targetFor(\App\Enum\Weekday::Friday, \App\Enum\DaySlot::Morning)->setTemperature(18.0); // vendredi 9 : 18,5 ≥ 18, on coupe
         $this->em->flush();
         $this->client->loginUser($user);
 
         $crawler = $this->client->request('GET', '/recommandations');
 
         self::assertStringContainsString('Couper', $crawler->filter('tbody tr')->first()->filter('td')->eq(0)->text());
+    }
+
+    public function testTargetsDifferPerWeekdayAndAreShownInEachCell(): void
+    {
+        $user = $this->createUser('a@example.com', located: true);
+        $this->addReadingsEverySlot($user, ['2026-10-08']);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household->targetFor(\App\Enum\Weekday::Saturday, \App\Enum\DaySlot::Morning)->setTemperature(17.0);
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/recommandations');
+
+        $rows = $crawler->filter('tbody tr');
+        $friday = $rows->eq(0)->filter('td')->eq(0)->text();   // matin, estimé 18,5
+        $saturday = $rows->eq(1)->filter('td')->eq(0)->text();
+        self::assertStringContainsString('ven. 9 oct.', $rows->eq(0)->text());
+        self::assertStringContainsString('sam. 10 oct.', $rows->eq(1)->text());
+        self::assertStringContainsString('Chauffer à 19,0 °C', $friday);
+        self::assertStringContainsString('visé 19,0 °C', $friday);
+        self::assertStringContainsString('Couper', $saturday, 'Samedi la cible est 17 : 18,5 suffit.');
+        self::assertStringContainsString('visé 17,0 °C', $saturday);
     }
 
     public function testOutageIsReportedWithoutBreakingThePage(): void

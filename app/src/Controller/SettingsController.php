@@ -8,7 +8,8 @@ use App\Dto\CityChoiceInput;
 use App\Dto\TargetsInput;
 use App\Entity\User;
 use App\Enum\DaySlot;
-use App\Form\TargetsType;
+use App\Enum\Weekday;
+use App\Form\WeekTargetsType;
 use App\Geocoding\GeocoderInterface;
 use App\Geocoding\GeocodingUnavailableException;
 use App\Service\HouseholdProvider;
@@ -36,16 +37,23 @@ final class SettingsController extends AbstractController
     {
         $household = $this->households->forUser($user);
 
-        $targets = new TargetsInput();
-        foreach (DaySlot::cases() as $slot) {
-            $targets->{$slot->value} = $household->targetFor($slot)->getTemperature();
+        /** @var array<string, TargetsInput> $week */
+        $week = [];
+        foreach (Weekday::cases() as $day) {
+            $targets = new TargetsInput();
+            foreach (DaySlot::cases() as $slot) {
+                $targets->{$slot->value} = $household->targetFor($day, $slot)->getTemperature();
+            }
+            $week[$day->key()] = $targets;
         }
-        $form = $this->createForm(TargetsType::class, $targets);
+        $form = $this->createForm(WeekTargetsType::class, $week);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            foreach (DaySlot::cases() as $slot) {
-                $household->targetFor($slot)->setTemperature((float) $targets->for($slot));
+            foreach (Weekday::cases() as $day) {
+                foreach (DaySlot::cases() as $slot) {
+                    $household->targetFor($day, $slot)->setTemperature((float) $week[$day->key()]->for($slot));
+                }
             }
             $this->entityManager->flush();
             $this->addFlash('success', 'Températures visées enregistrées.');
@@ -71,6 +79,8 @@ final class SettingsController extends AbstractController
         return $this->render('settings/index.html.twig', [
             'household' => $household,
             'form' => $form,
+            'slots' => DaySlot::chronological(),
+            'weekdays' => Weekday::cases(),
             'query' => $query,
             'results' => $results,
             'searchError' => $searchError,

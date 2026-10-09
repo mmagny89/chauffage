@@ -7,6 +7,7 @@ namespace App\Tests\Controller;
 use App\Entity\Household;
 use App\Entity\User;
 use App\Enum\DaySlot;
+use App\Enum\Weekday;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -39,10 +40,14 @@ final class SettingsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('body', 'Aucune ville renseignée');
-        self::assertInputValueSame('targets[night]', '17.0');
-        self::assertInputValueSame('targets[morning]', '19.0');
-        self::assertInputValueSame('targets[afternoon]', '19.0');
-        self::assertInputValueSame('targets[evening]', '20.0');
+        foreach (['monday', 'wednesday', 'sunday'] as $day) {
+            self::assertInputValueSame(\sprintf('week_targets[%s][night]', $day), '17.0');
+            self::assertInputValueSame(\sprintf('week_targets[%s][morning]', $day), '19.0');
+            self::assertInputValueSame(\sprintf('week_targets[%s][afternoon]', $day), '19.0');
+            self::assertInputValueSame(\sprintf('week_targets[%s][evening]', $day), '20.0');
+        }
+        self::assertCount(28, $this->client->getCrawler()->filter('input[name^="week_targets["][type=number]'));
+        self::assertSame(['Jour', 'Matin', 'Après-midi', 'Soirée', 'Nuit'], $this->client->getCrawler()->filter('thead th')->each(static fn ($th) => $th->text()));
     }
 
     public function testTargetsAreSaved(): void
@@ -52,10 +57,10 @@ final class SettingsControllerTest extends WebTestCase
 
         $this->client->request('GET', '/reglages');
         $this->client->submitForm('Enregistrer', [
-            'targets[night]' => '16.5',
-            'targets[morning]' => '19',
-            'targets[afternoon]' => '18',
-            'targets[evening]' => '21.5',
+            'week_targets[monday][night]' => '16.5',
+            'week_targets[monday][afternoon]' => '18',
+            'week_targets[saturday][evening]' => '21.5',
+            'week_targets[sunday][morning]' => '20',
         ]);
 
         self::assertResponseRedirects('/reglages');
@@ -63,9 +68,12 @@ final class SettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('[role=status]', 'Températures visées enregistrées');
 
         $household = $this->household($user);
-        self::assertSame(16.5, $household->targetFor(DaySlot::Night)->getTemperature());
-        self::assertSame(18.0, $household->targetFor(DaySlot::Afternoon)->getTemperature());
-        self::assertSame(21.5, $household->targetFor(DaySlot::Evening)->getTemperature());
+        self::assertSame(16.5, $household->targetFor(Weekday::Monday, DaySlot::Night)->getTemperature());
+        self::assertSame(18.0, $household->targetFor(Weekday::Monday, DaySlot::Afternoon)->getTemperature());
+        self::assertSame(21.5, $household->targetFor(Weekday::Saturday, DaySlot::Evening)->getTemperature());
+        self::assertSame(20.0, $household->targetFor(Weekday::Sunday, DaySlot::Morning)->getTemperature());
+        self::assertSame(17.0, $household->targetFor(Weekday::Tuesday, DaySlot::Night)->getTemperature(), 'Les autres jours ne bougent pas.');
+        self::assertSame(19.0, $household->targetFor(Weekday::Saturday, DaySlot::Morning)->getTemperature());
     }
 
     public function testOutOfRangeTargetIsRefusedAndNothingChanges(): void
@@ -75,16 +83,14 @@ final class SettingsControllerTest extends WebTestCase
 
         $this->client->request('GET', '/reglages');
         $this->client->submitForm('Enregistrer', [
-            'targets[night]' => '3',
-            'targets[morning]' => '19',
-            'targets[afternoon]' => '19',
-            'targets[evening]' => '45',
+            'week_targets[thursday][night]' => '3',
+            'week_targets[friday][evening]' => '45',
         ]);
 
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('body', 'doit être comprise entre 5 et 30');
         $this->em->clear();
-        self::assertSame(17.0, $this->household($user)->targetFor(DaySlot::Night)->getTemperature());
+        self::assertSame(17.0, $this->household($user)->targetFor(Weekday::Thursday, DaySlot::Night)->getTemperature());
     }
 
     public function testCitySearchListsResultsWithRegion(): void
@@ -117,7 +123,7 @@ final class SettingsControllerTest extends WebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('[role=alert]', 'momentanément indisponible');
-        self::assertSelectorExists('form[name=targets]', 'Le reste de la page reste utilisable.');
+        self::assertSelectorExists('form[name=week_targets]', 'Le reste de la page reste utilisable.');
     }
 
     public function testChoosingACityLocatesTheHousehold(): void
