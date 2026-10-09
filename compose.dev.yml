@@ -8,6 +8,16 @@ services:
     image: chauffage-php:dev
     environment:
       XDEBUG_MODE: ${XDEBUG_MODE}
+      # Rechargement du worker : uniquement le code qui s'edite. Le motif par
+      # defaut de `watch` couvre tout /app, donc var/cache : chaque ecriture de
+      # cache (Twig, conteneur, et phpunit depuis ce meme conteneur) redemarrait
+      # les threads PHP, requetes en cours comprises — pages qui tournent en boucle.
+      FRANKENPHP_WORKER_CONFIG: |
+        watch /app/src/**/*.php
+        watch /app/config/**/*.php
+        watch /app/config/**/*.yaml
+        watch /app/templates/**/*.twig
+        watch /app/translations/**/*.yaml
     volumes:
       - ./app:/app
     ports:

@@ -4,6 +4,9 @@ framework:
         paths:
             - assets/
         missing_import_mode: strict
+        # Le polyfill d'importmap se chargerait depuis ga.jspm.io (CDN externe) sur les
+        # navigateurs qui ne gèrent pas les importmaps : pas de ressource externe ici.
+        importmap_polyfill: false
 
 when@prod:
     framework:
