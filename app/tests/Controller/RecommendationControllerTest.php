@@ -236,6 +236,32 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertStringContainsString('dedans ≈ 21 °C', $rows->eq(1)->filter('td')->eq(0)->text());
     }
 
+    public function testARoomTargetReplacesTheHouseholdOneForThatRoomOnly(): void
+    {
+        // Mêmes données que ci-dessus : salon estimé à 20,7 °C l'après-midi, cave à 10,1 °C le matin.
+        // Cible du foyer : 19 °C. Le salon est exigeant (21 °C l'après-midi), la cave tolère 10 °C le matin.
+        $user = $this->createUser('a@example.com', located: true);
+        $places = $this->addPlaceReadings($user, ['Salon' => 15.0, 'Cave' => 8.0]);
+        $places['Salon']->setTarget(\App\Enum\DaySlot::Afternoon, 21.0);
+        $places['Cave']->setTarget(\App\Enum\DaySlot::Morning, 10.0);
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/recommandations');
+
+        $rows = $crawler->filter('#par-piece + div tbody tr');
+        $cave = $rows->eq(0)->filter('td');
+        $salon = $rows->eq(1)->filter('td');
+        self::assertStringContainsString('Chauffer à 21,0 °C', $salon->eq(0)->text(), 'Salon, après-midi : 20,7 < 21.');
+        self::assertStringContainsString('Couper', $cave->eq(3)->text(), 'Cave, matin de samedi : 10,1 ≥ 10.');
+        // La vue du foyer ignore les cibles de pièce.
+        self::assertStringContainsString('à 19,0 °C', $crawler->filter('#a-venir + ul li')->eq(0)->text());
+
+        $view = $this->client->request('GET', '/recommandations', ['piece' => (string) $places['Salon']->getId()]);
+        self::assertStringContainsString('visé 21,0 °C', $view->filter('tbody tr')->first()->filter('td')->eq(1)->text(), 'Après-midi du vendredi : cible de la pièce.');
+        self::assertStringContainsString('visé 19,0 °C', $view->filter('tbody tr')->first()->filter('td')->eq(0)->text(), 'Matin : la pièce suit le foyer.');
+    }
+
     public function testRoomViewShowsItsFifteenDays(): void
     {
         $user = $this->createUser('a@example.com', located: true);

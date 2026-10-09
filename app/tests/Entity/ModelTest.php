@@ -50,6 +50,57 @@ final class ModelTest extends KernelTestCase
         self::assertSame(0, $household->completeTargets(), 'Rien à ajouter la seconde fois.');
     }
 
+    public function testAPlaceFollowsTheHouseholdUntilItGetsItsOwnTargets(): void
+    {
+        $place = $this->place();
+
+        self::assertNull($place->targetFor(DaySlot::Night));
+
+        $place->setTarget(DaySlot::Night, 16.5);
+        $place->setTarget(DaySlot::Morning, 18.0);
+        $place->setTarget(DaySlot::Night, 17.0); // mise à jour, pas de doublon
+        $this->em->flush();
+        $this->em->clear();
+
+        $reloaded = $this->em->find(Place::class, $place->getId());
+        self::assertNotNull($reloaded);
+        self::assertSame(17.0, $reloaded->targetFor(DaySlot::Night));
+        self::assertSame(18.0, $reloaded->targetFor(DaySlot::Morning));
+        self::assertNull($reloaded->targetFor(DaySlot::Evening));
+        self::assertCount(2, $reloaded->getTargets());
+    }
+
+    public function testClearingAPlaceTargetRemovesTheRow(): void
+    {
+        $place = $this->place();
+        $place->setTarget(DaySlot::Night, 16.0);
+        $this->em->flush();
+
+        $place->setTarget(DaySlot::Night, null);
+        $this->em->flush();
+
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM place_target'));
+        self::assertNull($place->targetFor(DaySlot::Night));
+    }
+
+    public function testImplausiblePlaceTargetIsRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->place()->setTarget(DaySlot::Night, 2.0);
+    }
+
+    public function testDeletingAPlaceDeletesItsTargets(): void
+    {
+        $place = $this->place();
+        $place->setTarget(DaySlot::Night, 16.0);
+        $this->em->flush();
+
+        $this->em->getConnection()->executeStatement('DELETE FROM place');
+
+        self::assertSame(0, (int) $this->em->getConnection()->fetchOne('SELECT COUNT(*) FROM place_target'));
+    }
+
     public function testHouseholdLocationIsStoredAsDecimals(): void
     {
         $household = new Household($this->user());

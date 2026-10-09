@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Entity\Household;
+use App\Entity\Place;
 use App\Entity\User;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
@@ -50,7 +51,10 @@ final class SettingsControllerTest extends WebTestCase
             self::assertInputValueSame(\sprintf('week_targets[%s][evening]', $day), '20.0');
         }
         self::assertCount(28, $this->client->getCrawler()->filter('input[name^="week_targets["][type=number]'));
-        self::assertSame(['Jour', 'Matin', 'Après-midi', 'Soirée', 'Nuit'], $this->client->getCrawler()->filter('thead th')->each(static fn ($th) => $th->text()));
+        $groups = $this->client->getCrawler()->filter('form[name=week_targets] div[role=group]');
+        self::assertSame(['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'], $groups->each(static fn ($g) => $g->filter('p')->text()));
+        self::assertSame(['Matin', 'Après-midi', 'Soirée', 'Nuit'], $groups->first()->filter('label')->each(static fn ($l) => $l->text()), 'Étiquettes dans l’ordre de la journée.');
+        self::assertSelectorNotExists('form[name=week_targets] table', 'Une grille de champs, pas un tableau dupliqué.');
     }
 
     public function testTargetsAreSaved(): void
@@ -94,6 +98,73 @@ final class SettingsControllerTest extends WebTestCase
         self::assertSelectorTextContains('body', 'doit être comprise entre 5 et 30');
         $this->em->clear();
         self::assertSame(17.0, $this->household($user)->targetFor(Weekday::Thursday, DaySlot::Night)->getTemperature());
+    }
+
+    public function testPlaceTargetsAreOptionalAndSaved(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $cave = $this->createPlace($user, 'Cave');
+        $chambre = $this->createPlace($user, 'Chambre');
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/reglages');
+        $groups = $crawler->filter('form[name=place_targets] div[role=group]');
+        self::assertSame(['Cave', 'Chambre'], $groups->each(static fn ($g) => $g->filter('p')->text()));
+        self::assertCount(8, $crawler->filter('form[name=place_targets] input[type=number]'));
+        self::assertSame('', (string) $crawler->filter(\sprintf('input[name="place_targets[p%d][night]"]', $cave->getId()))->attr('value'), 'Vide : la pièce suit le foyer.');
+
+        $this->client->submitForm('Enregistrer les températures par pièce', [
+            \sprintf('place_targets[p%d][night]', $chambre->getId()) => '16.5',
+            \sprintf('place_targets[p%d][morning]', $chambre->getId()) => '18',
+        ]);
+
+        self::assertResponseRedirects('/reglages#cibles-pieces');
+        $this->em->clear();
+        $reloaded = $this->em->find(Place::class, $chambre->getId());
+        self::assertNotNull($reloaded);
+        self::assertSame(16.5, $reloaded->targetFor(DaySlot::Night));
+        self::assertSame(18.0, $reloaded->targetFor(DaySlot::Morning));
+        self::assertNull($reloaded->targetFor(DaySlot::Evening));
+        self::assertNull($this->em->find(Place::class, $cave->getId())?->targetFor(DaySlot::Night));
+    }
+
+    public function testEmptyingAPlaceTargetMakesItFollowTheHouseholdAgain(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $chambre = $this->createPlace($user, 'Chambre');
+        $chambre->setTarget(DaySlot::Night, 16.0);
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/reglages');
+        $this->client->submitForm('Enregistrer les températures par pièce', [\sprintf('place_targets[p%d][night]', $chambre->getId()) => '']);
+
+        $this->em->clear();
+        self::assertNull($this->em->find(Place::class, $chambre->getId())?->targetFor(DaySlot::Night));
+    }
+
+    public function testOutOfRangePlaceTargetIsRefusedAndNothingChanges(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $chambre = $this->createPlace($user, 'Chambre');
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/reglages');
+        $this->client->submitForm('Enregistrer les températures par pièce', [\sprintf('place_targets[p%d][night]', $chambre->getId()) => '3']);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'doit être comprise entre 5 et 30');
+        $this->em->clear();
+        self::assertNull($this->em->find(Place::class, $chambre->getId())?->targetFor(DaySlot::Night));
+    }
+
+    public function testNoPlaceTargetsFormWithoutPlaces(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->client->request('GET', '/reglages');
+
+        self::assertSelectorNotExists('form[name=place_targets]');
     }
 
     public function testCitySearchListsResultsWithRegion(): void
@@ -242,6 +313,15 @@ final class SettingsControllerTest extends WebTestCase
     private function choiceForm(Crawler $crawler, int $index): \Symfony\Component\DomCrawler\Form
     {
         return $crawler->filter('ul[aria-labelledby=resultats] li')->eq($index)->selectButton('Choisir')->form();
+    }
+
+    private function createPlace(User $user, string $name): Place
+    {
+        $place = new Place($this->household($user), $name);
+        $this->em->persist($place);
+        $this->em->flush();
+
+        return $place;
     }
 
     private function household(User $user): Household

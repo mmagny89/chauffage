@@ -21,7 +21,8 @@ semaine par jour de la semaine.
 ## Comment ça marche
 
 1. **Réglages** : choisir sa ville, déclarer ses lieux (salon, chambre, cave…) et fixer les
-   températures visées pour chaque moment de chaque jour de la semaine.
+   températures visées pour chaque moment de chaque jour de la semaine, et au besoin une
+   température propre à une pièce.
 2. **Relevés** : à une même heure, noter la température extérieure et celle de **chaque**
    lieu, chauffage éteint. Quelques jours, par des températures différentes.
 3. **Recommandations** : pour chaque jour, et pour le matin, l'après-midi, la soirée et la
