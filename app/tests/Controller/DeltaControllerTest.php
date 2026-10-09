@@ -146,7 +146,7 @@ final class DeltaControllerTest extends WebTestCase
      */
     private function addReadings(User $user, string $placeName, array $readings): void
     {
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $place = new Place($household, $placeName);
         $this->em->persist($place);
         foreach ($readings as [$measuredAt, $outdoor, $indoor]) {

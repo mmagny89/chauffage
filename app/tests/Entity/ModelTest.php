@@ -59,6 +59,7 @@ final class ModelTest extends KernelTestCase
         $this->em->clear();
 
         $reloaded = $this->em->find(Household::class, $household->getId());
+        self::assertNotNull($reloaded);
 
         self::assertSame('Lyon', $reloaded->getCity());
         self::assertSame(45.75, $reloaded->getLatitude());
@@ -82,6 +83,7 @@ final class ModelTest extends KernelTestCase
         $this->em->clear();
 
         $reading = $this->em->getRepository(Reading::class)->findOneBy([]);
+        self::assertNotNull($reading);
 
         self::assertSame(-7.5, $reading->getOutdoorTemperature());
         self::assertSame(23.5, $reading->getDelta());

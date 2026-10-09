@@ -90,6 +90,14 @@ jobs:
           [ -f composer.lock ] || { echo "composer.lock absent — ignore."; exit 0; }
           composer audit
 
+      - name: Style du code
+        run: |
+          if [ -x vendor/bin/php-cs-fixer ]; then
+            vendor/bin/php-cs-fixer fix --dry-run --diff
+          else
+            echo "PHP CS Fixer absent — etape ignoree."
+          fi
+
       - name: Analyse statique
         run: |
           if [ -x vendor/bin/phpstan ]; then

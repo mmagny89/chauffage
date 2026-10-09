@@ -139,9 +139,11 @@ final class DeltaModelFitterTest extends TestCase
 
         $models = $this->fitter->fit($readings);
 
-        self::assertSame(ModelKind::Regression, $models->forSlot(DaySlot::Morning)->kind);
-        self::assertSame(ModelKind::Mean, $models->forSlot(DaySlot::Evening)->kind);
-        self::assertSame(2, $models->forSlot(DaySlot::Evening)->readings);
+        self::assertSame(ModelKind::Regression, $this->morning($models)->kind);
+        $evening = $models->forSlot(DaySlot::Evening);
+        self::assertNotNull($evening);
+        self::assertSame(ModelKind::Mean, $evening->kind);
+        self::assertSame(2, $evening->readings);
         self::assertNull($models->forSlot(DaySlot::Night));
         self::assertNotNull($models->overall);
         self::assertSame(7, $models->overall->readings);
@@ -152,11 +154,13 @@ final class DeltaModelFitterTest extends TestCase
     {
         $readings = $this->morningReadings([2.0, 5.0, 8.0, 11.0, 14.0], static fn (float $t): float => 8.0 + 0.6 * $t + (int) $t % 3 * 0.1);
 
-        $forward = $this->fitter->fit($readings);
-        $backward = $this->fitter->fit(array_reverse($readings));
+        $forward = $this->fitter->fit($readings)->overall;
+        $backward = $this->fitter->fit(array_reverse($readings))->overall;
 
-        self::assertEqualsWithDelta($forward->overall->slope, $backward->overall->slope, 1e-9);
-        self::assertEqualsWithDelta($forward->overall->intercept, $backward->overall->intercept, 1e-9);
+        self::assertNotNull($forward);
+        self::assertNotNull($backward);
+        self::assertEqualsWithDelta($forward->slope, $backward->slope, 1e-9);
+        self::assertEqualsWithDelta($forward->intercept, $backward->intercept, 1e-9);
     }
 
     public function testCoversUsesTheMeasuredRangeWithAMargin(): void
@@ -188,8 +192,8 @@ final class DeltaModelFitterTest extends TestCase
     /**
      * Un relevé du matin par jour, à ces températures extérieures.
      *
-     * @param list<float>               $outdoors
-     * @param callable(float): float    $indoor
+     * @param list<float>            $outdoors
+     * @param callable(float): float $indoor
      *
      * @return list<Reading>
      */

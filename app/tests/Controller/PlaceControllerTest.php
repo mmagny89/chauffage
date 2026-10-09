@@ -85,8 +85,6 @@ final class PlaceControllerTest extends WebTestCase
         self::assertSame(['Salon'], $this->placeNames($user));
     }
 
-    /**
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('badNames')]
     public function testRefusesAnInvalidName(string $choice, string $custom, string $message): void
     {
@@ -260,7 +258,7 @@ final class PlaceControllerTest extends WebTestCase
     private function placeNames(User $user): array
     {
         $this->em->clear();
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $names = array_map(static fn (Place $p): string => $p->getName(), $this->em->getRepository(Place::class)->findBy(['household' => $household]));
         sort($names);
 
@@ -269,7 +267,7 @@ final class PlaceControllerTest extends WebTestCase
 
     private function createPlace(User $user, string $name): Place
     {
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $place = new Place($household, $name);
         $this->em->persist($place);
         $this->em->flush();

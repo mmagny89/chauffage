@@ -8,6 +8,7 @@ use App\Entity\Household;
 use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
+use App\Tests\Support\ResetsRateLimiters;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -17,6 +18,8 @@ use Symfony\Component\Clock\NativeClock;
 
 final class ReadingControllerTest extends WebTestCase
 {
+    use ResetsRateLimiters;
+
     private KernelBrowser $client;
     private EntityManagerInterface $em;
 
@@ -25,7 +28,7 @@ final class ReadingControllerTest extends WebTestCase
         Clock::set(new MockClock('2026-10-09 14:00:00', 'Europe/Paris'));
         $this->client = static::createClient();
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
-        self::getContainer()->get('test.cache.rate_limiter')->clear();
+        self::resetRateLimiters();
     }
 
     protected function tearDown(): void
@@ -295,7 +298,7 @@ final class ReadingControllerTest extends WebTestCase
      */
     private function createPlaces(User $user, array $names): array
     {
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $places = [];
         foreach ($names as $name) {
             $place = new Place($household, $name);

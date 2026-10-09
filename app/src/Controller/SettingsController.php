@@ -116,7 +116,7 @@ final class SettingsController extends AbstractController
             return $this->redirectToRoute('app_settings');
         }
 
-        \assert(null !== $choice->label && null !== $choice->latitude && null !== $choice->longitude && null !== $choice->timezone);
+        \assert(null !== $choice->latitude && null !== $choice->longitude);
         $this->households->forUser($user)->locate($choice->label, $choice->latitude, $choice->longitude, $choice->timezone);
         $this->entityManager->flush();
         $this->addFlash('success', \sprintf('Ville enregistrée : %s.', $choice->label));

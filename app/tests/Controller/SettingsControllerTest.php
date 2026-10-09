@@ -8,6 +8,7 @@ use App\Entity\Household;
 use App\Entity\User;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
+use App\Tests\Support\ResetsRateLimiters;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -15,6 +16,8 @@ use Symfony\Component\DomCrawler\Crawler;
 
 final class SettingsControllerTest extends WebTestCase
 {
+    use ResetsRateLimiters;
+
     private KernelBrowser $client;
     private EntityManagerInterface $em;
 
@@ -22,7 +25,7 @@ final class SettingsControllerTest extends WebTestCase
     {
         $this->client = static::createClient();
         $this->em = self::getContainer()->get(EntityManagerInterface::class);
-        self::getContainer()->get('test.cache.rate_limiter')->clear();
+        self::resetRateLimiters();
     }
 
     public function testAnonymousVisitorIsSentToLogin(): void
@@ -135,7 +138,7 @@ final class SettingsControllerTest extends WebTestCase
         $this->client->submit($this->choiceForm($crawler, 0));
 
         self::assertResponseRedirects('/reglages');
-        $crawler = $this->client->followRedirect();
+        $this->client->followRedirect();
         self::assertSelectorTextContains('[role=status]', 'Ville enregistrée : Lyon (Rhône, France).');
         self::assertSelectorTextContains('body', 'Ville actuelle : Lyon (Rhône, France)');
 
@@ -144,7 +147,6 @@ final class SettingsControllerTest extends WebTestCase
         self::assertSame(45.74906, $household->getLatitude());
         self::assertSame(4.84789, $household->getLongitude());
         self::assertSame('Europe/Paris', $household->getTimezone());
-        self::assertNotNull($crawler);
     }
 
     public function testChoosingTheOtherCityKeepsItsTimezone(): void
@@ -172,7 +174,6 @@ final class SettingsControllerTest extends WebTestCase
     }
 
     /**
-     *
      * @param array<string, string> $override
      */
     #[\PHPUnit\Framework\Attributes\DataProvider('tamperedChoices')]

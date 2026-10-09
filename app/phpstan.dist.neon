@@ -1,0 +1,15 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - tests
+    symfony:
+        containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
+    doctrine:
+        objectManagerLoader: tests/object-manager.php
+    ignoreErrors:
+        # Alias déclaré pour l'environnement de test seulement (config/services.yaml, when@test) :
+        # le conteneur de dev, que lit PHPStan, ne le connaît pas.
+        -
+            message: '#Service "test\.cache\.rate_limiter" is not registered in the container\.#'
+            path: tests/Support/ResetsRateLimiters.php

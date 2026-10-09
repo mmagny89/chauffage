@@ -11,6 +11,8 @@ use Symfony\Component\Form\FormBuilderInterface;
 /**
  * Les températures visées de toute la semaine : un TargetsType par jour.
  * Données : tableau « clé du jour » => TargetsInput.
+ *
+ * @extends AbstractType<array<string, \App\Dto\TargetsInput>>
  */
 final class WeekTargetsType extends AbstractType
 {

@@ -23,7 +23,7 @@ enum Weekday: int
     }
 
     /**
-     * Clé stable pour les noms de champs de formulaire : « monday », « tuesday »…
+     * Clé stable pour les noms de champs de formulaire : « monday », « tuesday »….
      */
     public function key(): string
     {

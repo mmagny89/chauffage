@@ -68,8 +68,6 @@ final class OpenMeteoForecastProviderTest extends TestCase
         self::assertSame(2, $calls, 'Deux positions voisines = un appel ; Paris = un autre.');
     }
 
-    /**
-     */
     #[\PHPUnit\Framework\Attributes\DataProvider('unusableResponses')]
     public function testUnusableResponseIsReportedAsUnavailable(MockResponse $response): void
     {

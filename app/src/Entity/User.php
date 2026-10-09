@@ -68,7 +68,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function getUserIdentifier(): string
     {
-        return $this->email;
+        return '' !== $this->email ? $this->email : throw new \LogicException('Un compte sans adresse email n’a pas d’identifiant.');
     }
 
     /**

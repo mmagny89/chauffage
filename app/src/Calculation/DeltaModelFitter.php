@@ -30,7 +30,7 @@ final class DeltaModelFitter
      */
     public function fit(iterable $readings): DeltaModels
     {
-        /** @var array<string, list<array{float, float, string}>> $bySlot */
+        /** @var array<string, non-empty-list<array{float, float, string}>> $bySlot */
         $bySlot = [];
         /** @var list<array{float, float, string}> $all */
         $all = [];

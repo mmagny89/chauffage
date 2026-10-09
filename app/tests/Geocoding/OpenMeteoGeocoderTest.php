@@ -44,6 +44,7 @@ final class OpenMeteoGeocoderTest extends TestCase
 
         (new OpenMeteoGeocoder($client, new ArrayAdapter()))->search('  Saint   Étienne ');
 
+        self::assertNotNull($captured);
         self::assertSame('GET', $captured[0]);
         self::assertStringStartsWith('https://geocoding-api.open-meteo.com/v1/search?', $captured[1]);
         self::assertStringContainsString('name=Saint%20%C3%89tienne', $captured[1], 'Espaces normalisés.');

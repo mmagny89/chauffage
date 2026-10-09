@@ -147,7 +147,7 @@ final class RecommendationControllerTest extends WebTestCase
     {
         $user = $this->createUser('a@example.com', located: true);
         $this->addReadingsEverySlot($user, ['2026-10-08']);
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $household->targetFor(\App\Enum\Weekday::Friday, \App\Enum\DaySlot::Morning)->setTemperature(18.0); // vendredi 9 : 18,5 ≥ 18, on coupe
         $this->em->flush();
         $this->client->loginUser($user);
@@ -161,7 +161,7 @@ final class RecommendationControllerTest extends WebTestCase
     {
         $user = $this->createUser('a@example.com', located: true);
         $this->addReadingsEverySlot($user, ['2026-10-08']);
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $household->targetFor(\App\Enum\Weekday::Saturday, \App\Enum\DaySlot::Morning)->setTemperature(17.0);
         $this->em->flush();
         $this->client->loginUser($user);
@@ -184,7 +184,7 @@ final class RecommendationControllerTest extends WebTestCase
         // Matin, cinq jours à 2…14 °C : écart = 8 − 0,4 × extérieur. Prévisions du double de test :
         // matin 8,5 / après-midi 14,5 / soirée 19,5 / nuit 7,5 (les trois derniers : modèle général, même droite).
         $user = $this->createUser('a@example.com', located: true);
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $place = new Place($household, 'Salon');
         $this->em->persist($place);
         foreach ([[1, 2.0], [2, 5.0], [3, 8.0], [4, 11.0], [5, 14.0]] as [$day, $outdoor]) {
@@ -237,7 +237,7 @@ final class RecommendationControllerTest extends WebTestCase
      */
     private function addReadingsEverySlot(User $user, array $days): void
     {
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $place = new Place($household, 'Salon');
         $this->em->persist($place);
         foreach ($days as $day) {

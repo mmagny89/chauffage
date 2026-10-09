@@ -43,7 +43,7 @@ class PlaceRepository extends ServiceEntityRepository
         /** @var list<Place> $places */
         $places = $this->findBy(['household' => $household]);
         $collator = new \Collator('fr_FR');
-        usort($places, static fn (Place $a, Place $b): int => $collator->compare($a->getName(), $b->getName()));
+        usort($places, static fn (Place $a, Place $b): int => (int) $collator->compare($a->getName(), $b->getName()));
 
         return $places;
     }

@@ -84,6 +84,6 @@ final class DeltaCalculator
     private static function sortByName(array &$places): void
     {
         $collator = new \Collator('fr_FR');
-        usort($places, static fn (PlaceDeltas $a, PlaceDeltas $b): int => $collator->compare($a->placeName, $b->placeName));
+        usort($places, static fn (PlaceDeltas $a, PlaceDeltas $b): int => (int) $collator->compare($a->placeName, $b->placeName));
     }
 }

@@ -11,7 +11,7 @@ namespace App\Exception;
 final class ReadingsRejectedException extends \RuntimeException
 {
     /**
-     * @param array<int, string> $reasons message par index de ligne
+     * @param array<string, string> $reasons message par nom de champ (« time » ou « p<id> »)
      */
     public function __construct(public readonly array $reasons)
     {

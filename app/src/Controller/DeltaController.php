@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Calculation\DeltaModelFitter;
-use App\Recommendation\RecommendationService;
 use App\Entity\User;
 use App\Enum\DaySlot;
+use App\Recommendation\RecommendationService;
 use App\Repository\ReadingRepository;
 use App\Service\Calibration;
 use App\Service\HouseholdProvider;

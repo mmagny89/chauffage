@@ -7,12 +7,15 @@ namespace App\Tests\Controller;
 use App\Entity\User;
 use App\Repository\HouseholdRepository;
 use App\Repository\UserRepository;
+use App\Tests\Support\ResetsRateLimiters;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Mime\Email;
 
 final class AuthenticationTest extends WebTestCase
 {
+    use ResetsRateLimiters;
+
     private const EMAIL = 'famille@example.com';
     private const PASSWORD = 'cheval agrafeuse nuage tricot';
 
@@ -21,7 +24,7 @@ final class AuthenticationTest extends WebTestCase
     protected function setUp(): void
     {
         $this->client = static::createClient();
-        self::getContainer()->get('test.cache.rate_limiter')->clear();
+        self::resetRateLimiters();
     }
 
     public function testAnonymousVisitorIsSentToLogin(): void
@@ -47,7 +50,7 @@ final class AuthenticationTest extends WebTestCase
         self::assertEmailCount(1);
         $confirmationLink = $this->linkFromEmail();
 
-        $user = $this->findUser(self::EMAIL);
+        $user = $this->requireUser(self::EMAIL);
         self::assertFalse($user->isVerified());
 
         $household = self::getContainer()->get(HouseholdRepository::class)->findOneBy(['user' => $user]);
@@ -62,7 +65,7 @@ final class AuthenticationTest extends WebTestCase
 
         $this->client->request('GET', $confirmationLink);
         self::assertResponseRedirects('/login');
-        self::assertTrue($this->findUser(self::EMAIL)->isVerified());
+        self::assertTrue($this->requireUser(self::EMAIL)->isVerified());
 
         $this->login(self::EMAIL, self::PASSWORD);
         self::assertResponseRedirects('/');
@@ -119,7 +122,7 @@ final class AuthenticationTest extends WebTestCase
         self::assertResponseRedirects('/login');
 
         // La réinitialisation prouve la possession de l'adresse : le compte est confirmé.
-        self::assertTrue($this->findUser(self::EMAIL)->isVerified());
+        self::assertTrue($this->requireUser(self::EMAIL)->isVerified());
 
         $this->login(self::EMAIL, self::PASSWORD);
         $this->client->followRedirect();
@@ -171,6 +174,11 @@ final class AuthenticationTest extends WebTestCase
         return self::getContainer()->get(UserRepository::class)->findOneBy(['email' => mb_strtolower($email)]);
     }
 
+    private function requireUser(string $email): User
+    {
+        return $this->findUser($email) ?? throw new \LogicException(\sprintf('Compte « %s » introuvable.', $email));
+    }
+
     private function linkFromEmail(int $index = 0): string
     {
         $message = self::getMailerMessages()[$index];
@@ -178,6 +186,6 @@ final class AuthenticationTest extends WebTestCase
         self::assertSame(1, preg_match('#href="(https?://[^"]+)"#', (string) $message->getHtmlBody(), $matches));
         $url = parse_url(html_entity_decode($matches[1]));
 
-        return $url['path'].(isset($url['query']) ? '?'.$url['query'] : '');
+        return ($url['path'] ?? '/').(isset($url['query']) ? '?'.$url['query'] : '');
     }
 }

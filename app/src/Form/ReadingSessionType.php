@@ -19,6 +19,8 @@ use Symfony\Component\Validator\Constraints\Range;
 
 /**
  * Formulaire de relevé : un champ de température intérieure, obligatoire, par lieu déclaré.
+ *
+ * @extends AbstractType<\App\Dto\ReadingSessionInput>
  */
 final class ReadingSessionType extends AbstractType
 {

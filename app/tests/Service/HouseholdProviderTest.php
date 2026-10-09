@@ -37,7 +37,9 @@ final class HouseholdProviderTest extends KernelTestCase
         $em->getConnection()->executeStatement('DELETE FROM heating_target');
         $em->clear();
 
-        $household = self::getContainer()->get(HouseholdProvider::class)->forUser($em->getRepository(User::class)->findOneBy(['email' => 'incomplet@example.com']));
+        $reloaded = $em->getRepository(User::class)->findOneBy(['email' => 'incomplet@example.com']);
+        self::assertNotNull($reloaded);
+        $household = self::getContainer()->get(HouseholdProvider::class)->forUser($reloaded);
         $em->clear();
 
         self::assertSame(28, (int) $em->getConnection()->fetchOne('SELECT COUNT(*) FROM heating_target'));

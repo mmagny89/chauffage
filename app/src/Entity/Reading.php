@@ -9,7 +9,6 @@ use App\Repository\ReadingRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
-use Symfony\Component\Validator\Constraints as Assert;
 
 /**
  * Un relevé : températures extérieure et intérieure d'un lieu à un instant.
