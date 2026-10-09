@@ -27,11 +27,12 @@ final class DayReadingsInput
     {
         $seen = [];
         foreach ($this->rows as $index => $row) {
-            if (null === $row->place || null === $row->time) {
+            $name = $row->placeName();
+            if (null === $name || null === $row->time) {
                 continue;
             }
 
-            $key = mb_strtolower(trim($row->place)).'|'.$row->time->format('H:i');
+            $key = mb_strtolower($name).'|'.$row->time->format('H:i');
             if (isset($seen[$key])) {
                 $context->buildViolation('Ce lieu apparaît déjà à la même heure dans ce formulaire.')
                     ->atPath(\sprintf('rows[%d].time', $index))

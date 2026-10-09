@@ -9,6 +9,7 @@ use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
+use App\Service\RoomCatalog;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
@@ -52,10 +53,10 @@ final class ReadingControllerTest extends WebTestCase
         self::assertSame('1', $holder->attr('data-collection-index-value'));
         $prototype = (string) $holder->attr('data-collection-prototype-value');
         self::assertStringContainsString('day_readings[rows][__name__][place]', $prototype);
+        self::assertStringContainsString('data-controller="place"', $prototype);
         self::assertStringContainsString('data-collection-target="item"', $prototype);
         self::assertStringContainsString('data-action="collection#remove"', $prototype);
         self::assertSelectorExists('button[data-action="collection#add"]');
-        self::assertSelectorExists('datalist#place-suggestions');
     }
 
     public function testRecordsADayWithSeveralPlacesAndReusesPlacesIgnoringCase(): void
@@ -65,13 +66,13 @@ final class ReadingControllerTest extends WebTestCase
 
         $this->submit('2026-10-08', [
             ['Salon', '07:30', '4.5', '18.0'],
-            ['Chambre', '07:30', '4.5', '16.5'],
+            ['Cuisine', '07:30', '4.5', '16.5'],
         ]);
         self::assertResponseRedirects('/releves');
         $this->client->followRedirect();
         self::assertSelectorTextContains('[role=status]', '2 relevés enregistrés');
 
-        $this->submit('2026-10-08', [['salon', '19:00', '9.0', '19.5']]);
+        $this->submit('2026-10-08', [['@salon', '19:00', '9.0', '19.5']]);
         self::assertResponseRedirects('/releves');
 
         self::assertSame(3, $this->em->getRepository(Reading::class)->count([]));
@@ -98,7 +99,7 @@ final class ReadingControllerTest extends WebTestCase
         $this->client->loginUser($this->createUser('a@example.com'));
         $this->submit('2026-10-08', [['Salon', '07:30', '4.5', '18.0']]);
 
-        $this->submit('2026-10-08', [['SALON', '07:30', '5.0', '19.0']]);
+        $this->submit('2026-10-08', [['@SALON', '07:30', '5.0', '19.0']]);
 
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('body', 'Un relevé existe déjà pour ce lieu à cette heure.');
@@ -111,7 +112,7 @@ final class ReadingControllerTest extends WebTestCase
         $this->submit('2026-10-08', [['Salon', '07:30', '4.5', '18.0']]);
 
         $this->submit('2026-10-08', [
-            ['Chambre', '08:00', '5.0', '17.0'],
+            ['Cuisine', '08:00', '5.0', '17.0'],
             ['Salon', '07:30', '5.0', '19.0'],
         ]);
 
@@ -143,11 +144,47 @@ final class ReadingControllerTest extends WebTestCase
 
         $this->submit('2026-10-08', [
             ['Salon', '07:30', '5.0', '18.0'],
-            ['salon', '07:30', '5.0', '18.0'],
+            ['@salon', '07:30', '5.0', '18.0'],
         ]);
         self::assertResponseStatusCodeSame(422);
         self::assertSelectorTextContains('body', 'apparaît déjà à la même heure');
         self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
+    }
+
+    public function testPlaceIsAGroupedDropdownOfRoomsAndOwnPlaces(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+        $this->submit('2026-10-08', [['@Atelier', '07:30', '4.5', '16.0']]);
+
+        $crawler = $this->client->request('GET', '/releves');
+
+        $select = $crawler->filter('select[name="day_readings[rows][0][place]"]');
+        self::assertCount(1, $select);
+        self::assertGreaterThan(10, $select->filter('optgroup[label=Pièces] option')->count());
+        self::assertSame('Cuisine', $select->filter('optgroup[label=Pièces] option')->eq(3)->text());
+        self::assertSame(['Atelier'], $select->filter('optgroup[label="Vos autres lieux"] option')->each(static fn ($o) => $o->text()));
+        self::assertSame('Autre lieu…', $select->filter('optgroup[label=Autre] option')->text());
+    }
+
+    public function testPlaceMustBeOneOfTheChoices(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->submit('2026-10-08', [['Salon de la reine', '07:30', '4.5', '18.0']]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
+    }
+
+    public function testOtherPlaceNeedsAName(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->submit('2026-10-08', [['@', '07:30', '4.5', '18.0']]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'Indiquez le nom du lieu.');
     }
 
     public function testADayNeedsAtLeastOnePlace(): void
@@ -225,7 +262,7 @@ final class ReadingControllerTest extends WebTestCase
     }
 
     /**
-     * @param list<array{string, string, string, string}> $rows lieu, heure, extérieur, intérieur
+     * @param list<array{0: string, 1: string, 2: string, 3: string, 4?: string}> $rows lieu (de la liste, ou « @nom » pour un lieu libre), heure, extérieur, intérieur
      */
     private function submit(string $date, array $rows): void
     {
@@ -235,7 +272,12 @@ final class ReadingControllerTest extends WebTestCase
         $values['day_readings']['date'] = $date;
         $values['day_readings']['rows'] = [];
         foreach ($rows as $index => [$place, $time, $outdoor, $indoor]) {
-            $values['day_readings']['rows'][$index] = ['place' => $place, 'time' => $time, 'outdoor' => $outdoor, 'indoor' => $indoor];
+            $custom = '';
+            if (str_starts_with($place, '@')) {
+                $custom = substr($place, 1);
+                $place = RoomCatalog::OTHER;
+            }
+            $values['day_readings']['rows'][$index] = ['place' => $place, 'customPlace' => $custom, 'time' => $time, 'outdoor' => $outdoor, 'indoor' => $indoor];
         }
 
         $this->client->request('POST', $form->getUri(), $values);

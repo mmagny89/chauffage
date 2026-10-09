@@ -15,6 +15,7 @@ use App\Repository\ReadingRepository;
 use App\Security\Voter\ReadingVoter;
 use App\Service\Calibration;
 use App\Service\HouseholdProvider;
+use App\Service\RoomCatalog;
 use App\Service\ReadingRecorder;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -32,6 +33,7 @@ final class ReadingController extends AbstractController
         private readonly HouseholdProvider $households,
         private readonly ReadingRepository $readings,
         private readonly PlaceRepository $places,
+        private readonly RoomCatalog $rooms,
     ) {
     }
 
@@ -44,7 +46,9 @@ final class ReadingController extends AbstractController
         $input->date = new \DateTimeImmutable($clock->now()->setTimezone(new \DateTimeZone($household->getTimezone()))->format('Y-m-d'));
         $input->rows = [new ReadingRowInput()];
 
-        $form = $this->createForm(DayReadingsType::class, $input);
+        $form = $this->createForm(DayReadingsType::class, $input, [
+            'place_choices' => $this->rooms->choices($this->places->namesOf($household)),
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -73,7 +77,6 @@ final class ReadingController extends AbstractController
             'days' => $days,
             'daysDone' => $this->readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,
-            'placeSuggestions' => $this->places->namesOf($household),
         ], new Response(status: $form->isSubmitted() && !$form->isValid() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 

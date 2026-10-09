@@ -23,6 +23,7 @@ final class DayReadingsType extends AbstractType
             ])
             ->add('rows', CollectionType::class, [
                 'entry_type' => ReadingRowType::class,
+                'entry_options' => ['place_choices' => $options['place_choices']],
                 'allow_add' => true,
                 'allow_delete' => true,
                 'by_reference' => false,
@@ -34,6 +35,7 @@ final class DayReadingsType extends AbstractType
 
     public function configureOptions(OptionsResolver $resolver): void
     {
-        $resolver->setDefaults(['data_class' => DayReadingsInput::class]);
+        $resolver->setDefaults(['data_class' => DayReadingsInput::class, 'place_choices' => []]);
+        $resolver->setAllowedTypes('place_choices', 'array');
     }
 }

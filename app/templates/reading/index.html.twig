@@ -46,9 +46,6 @@
         <div class="max-w-xs">{% include 'partials/_button.html.twig' with {label: 'Enregistrer le jour'} %}</div>
     {{ form_end(form) }}
 
-    <datalist id="place-suggestions">
-        {% for name in placeSuggestions %}<option value="{{ name }}"></option>{% endfor %}
-    </datalist>
 </section>
 
 <section aria-labelledby="historique">

@@ -45,7 +45,8 @@ final readonly class ReadingRecorder
         /** @var array<string, Place> $resolved lieux déjà retrouvés ou créés dans cet envoi, par nom en minuscules */
         $resolved = [];
         foreach ($input->rows as $index => $row) {
-            \assert(null !== $row->place && null !== $row->time && null !== $row->outdoor && null !== $row->indoor);
+            $placeName = $row->placeName();
+            \assert(null !== $placeName && null !== $row->time && null !== $row->outdoor && null !== $row->indoor);
 
             $measuredAt = $input->date->setTime((int) $row->time->format('G'), (int) $row->time->format('i'));
             if ($measuredAt > $nowWallClock) {
@@ -53,8 +54,8 @@ final readonly class ReadingRecorder
                 continue;
             }
 
-            $placeKey = mb_strtolower(trim($row->place));
-            $place = $resolved[$placeKey] ??= $this->places->findOneByHouseholdAndName($household, $row->place) ?? new Place($household, $row->place);
+            $placeKey = mb_strtolower($placeName);
+            $place = $resolved[$placeKey] ??= $this->places->findOneByHouseholdAndName($household, $placeName) ?? new Place($household, $placeName);
             if (null !== $place->getId() && $this->readings->existsFor($place, $measuredAt)) {
                 $reasons[$index] = 'Un relevé existe déjà pour ce lieu à cette heure.';
                 continue;
