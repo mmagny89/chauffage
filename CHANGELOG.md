@@ -10,6 +10,14 @@ règles métier et des pièges déjà payés vit dans [`CLAUDE.md`](CLAUDE.md).
 
 ## [Non publié]
 
+## [0.2.0] - 2026-10-09
+
+### Ajouté
+
+- **Volets** : une carte du tableau de bord dit, pour aujourd'hui et demain, quand ouvrir et fermer les volets
+  en hiver : ouvrir au lever du soleil quand il y a du soleil à récupérer, fermer au coucher. Indication
+  générale pour tout le foyer, sans relevé ni orientation ; rien n'est affiché quand il fait doux.
+
 ## [0.1.0] - 2026-10-09
 
 Première version utilisable de bout en bout.

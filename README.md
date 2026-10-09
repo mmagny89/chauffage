@@ -44,7 +44,7 @@ vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 p
 
 ## État du projet
 
-Utilisable de bout en bout, version **0.1.0** (voir le [journal des versions](CHANGELOG.md)) ;
+Utilisable de bout en bout, version **0.2.0** (voir le [journal des versions](CHANGELOG.md)) ;
 pas encore d'environnement de pré-production ni de production. Prévu ensuite : alertes par email et récapitulatif
 quotidien (nécessite un worker).
 
@@ -55,6 +55,7 @@ quotidien (nécessite un worker).
 | **Lieux et relevés** | Lieux déclarés dans les réglages ; un relevé renseigne tous les lieux ; jauge de calibrage (cinq jours). |
 | **Écarts** | Moyenne par lieu et par moment de la journée ; modèle retenu et sa formule. |
 | **Prévisions** | Quinze jours, par moment de la journée, via Open-Meteo. |
+| **Volets** | Indication d'hiver pour aujourd'hui et demain : ouvrir au soleil, fermer au coucher. |
 | **Recommandations** | Chauffer ou couper, par jour et par créneau, pour le foyer et pour chaque pièce, avec les avertissements de fiabilité. |
 
 ## Démarrer en local
