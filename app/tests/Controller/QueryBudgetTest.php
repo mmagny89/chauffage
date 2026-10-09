@@ -41,7 +41,7 @@ final class QueryBudgetTest extends WebTestCase
      */
     public static function budgets(): iterable
     {
-        yield 'accueil' => ['/', 3];
+        yield 'accueil' => ['/', 6];
         yield 'relevés' => ['/releves', 8];
         yield 'écarts' => ['/ecarts', 7];
         yield 'réglages' => ['/reglages', 6];

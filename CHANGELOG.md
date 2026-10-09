@@ -19,6 +19,10 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
   correspond à un foyer.
 - **Mise en route** : à l'inscription, on règle d'abord (ville, lieux, températures visées) avant de pouvoir
   saisir un relevé ; toutes les autres pages y renvoient tant que ce n'est pas terminé.
+- **Navigation** : menu repliable sur téléphone et tablette, page courante signalée, cibles tactiles de 44 px,
+  pied de page ; l'accueil devient un tableau de bord (avancement du calibrage, prochains créneaux, accès rapides).
+- **Responsive** : cartes par jour pour les recommandations et les prévisions sur téléphone, grilles de saisie
+  des températures adaptées à la largeur, première colonne fixe dans les tableaux qui défilent.
 - **Lieux** : déclarés dans les réglages (pièces usuelles ou nom libre), renommables et
   supprimables ; supprimer un lieu supprime ses relevés.
 - **Relevés** : à une date et une heure, la température extérieure et la température

@@ -61,7 +61,7 @@
     {% if placeRows %}
         <section aria-labelledby="par-piece" class="mb-8">
             <h2 id="par-piece" class="mb-3 text-lg font-semibold">Pièce par pièce</h2>
-            <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
                 <table class="w-full text-left text-sm">
                     <caption class="sr-only">Recommandation de chauffage de chaque pièce pour les prochains moments de la journée</caption>
                     <thead class="bg-slate-100 text-slate-700">
@@ -93,7 +93,7 @@
 
     <section aria-labelledby="quinze-jours">
         <h2 id="quinze-jours" class="mb-3 text-lg font-semibold">Les {{ rows|length }} prochains jours{% if selected %} — {{ selected.name }}{% endif %}</h2>
-        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div class="relative hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
             <table class="w-full text-left text-sm">
                 <caption class="sr-only">Recommandation de chauffage par jour et par moment de la journée, avec la température extérieure prévue et l’intérieure estimée</caption>
                 <thead class="bg-slate-100 text-slate-700">
@@ -115,6 +115,22 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        {# Téléphone : une carte par jour (un tableau de cinq colonnes y serait illisible). Même contenu que le tableau, masqué à partir de md. #}
+        <div class="space-y-3 md:hidden">
+            {% for row in rows %}
+                <article aria-labelledby="jour-{{ loop.index }}" class="overflow-hidden rounded-lg border border-slate-200 {{ row.distant ? 'bg-slate-50 text-slate-500' : 'bg-white' }}">
+                    <h3 id="jour-{{ loop.index }}" class="border-b border-slate-100 px-4 py-2 text-sm font-semibold">{{ row.label }}</h3>
+                    <dl class="divide-y divide-slate-100">
+                        {% for slot in slots %}
+                            <div class="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 px-4 py-3">
+                                <dt class="text-sm font-medium">{{ slot.label }}</dt>
+                                <dd>{% include 'recommendation/_cell.html.twig' with {item: row.day.forSlot(slot)} %}</dd>
+                            </div>
+                        {% endfor %}
+                    </dl>
+                </article>
+            {% endfor %}
         </div>
         <p class="mt-3 text-sm text-slate-600">Lignes grisées : au-delà de 7 jours, les prévisions sont peu fiables. La nuit d’un jour va de 22 h ce jour-là à 6 h le lendemain. « Écart général » : aucun relevé sur ce créneau, le modèle de tous les créneaux est utilisé. « Hors plage mesurée » : la prévision sort des températures extérieures de vos relevés, l’estimation est moins fiable. <a href="{{ path('app_deltas') }}#modele" class="underline underline-offset-2">Voir le modèle utilisé</a>.</p>
         <p class="mt-1 text-sm text-slate-600">La température visée dépend du jour de la semaine et du moment de la journée : <a href="{{ path('app_settings') }}" class="underline underline-offset-2">la modifier dans les réglages</a>.</p>

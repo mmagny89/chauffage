@@ -72,6 +72,20 @@ final class ForecastControllerTest extends WebTestCase
         self::assertSelectorNotExists('td span[title]', 'Quinze nuits complètes : aucun créneau tronqué.');
     }
 
+    public function testEveryDayAlsoHasAPhoneCard(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com', 'Lyon (Rhône, France)'));
+
+        $crawler = $this->client->request('GET', '/previsions');
+
+        $cards = $crawler->filter('article[aria-labelledby^=jour-]');
+        self::assertCount(15, $cards);
+        self::assertSame('ven. 9 oct.', $cards->first()->filter('h2')->text());
+        self::assertSame(['Matin', 'Après-midi', 'Soirée', 'Nuit'], $cards->first()->filter('dt')->each(static fn ($dt) => $dt->text()));
+        self::assertStringContainsString('8,5 °C', $cards->first()->filter('dd')->eq(0)->text());
+        self::assertStringContainsString('md:block', (string) $crawler->filter('table')->ancestors()->first()->attr('class'));
+    }
+
     public function testCreditsOpenMeteo(): void
     {
         $this->client->loginUser($this->createUser('a@example.com', 'Lyon'));

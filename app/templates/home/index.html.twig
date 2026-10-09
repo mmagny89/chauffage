@@ -3,8 +3,68 @@
 {% block title %}Accueil{% endblock %}
 
 {% block body %}
-<h1 class="mb-4 text-2xl font-semibold">Bienvenue</h1>
-<p class="mb-6 text-slate-700">Commencez par noter quelques relevés de température : l’outil en tirera l’écart entre l’intérieur et l’extérieur de chaque pièce.</p>
-<a href="{{ path('app_recommendations') }}" class="mr-3 inline-block rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Voir les recommandations</a>
-<a href="{{ path('app_readings') }}" class="inline-block rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Saisir des relevés</a>
+{% set calibrated = daysDone >= daysRequired %}
+<h1 class="mb-1 text-2xl font-semibold">Tableau de bord</h1>
+<p class="mb-6 text-slate-700">{{ household.city }}</p>
+
+<section aria-labelledby="prochaine-etape" class="mb-8 rounded-lg border border-slate-200 bg-white p-5">
+    <h2 id="prochaine-etape" class="mb-3 text-lg font-semibold">Où j’en suis</h2>
+
+    <div role="progressbar" aria-labelledby="prochaine-etape" aria-valuemin="0" aria-valuemax="{{ daysRequired }}" aria-valuenow="{{ min(daysDone, daysRequired) }}"
+         aria-valuetext="{{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} de relevés sur {{ daysRequired }}" class="mb-2 flex gap-1">
+        {% for step in 1..daysRequired %}
+            <span class="h-2 flex-1 rounded {{ step <= daysDone ? 'bg-emerald-600' : 'bg-slate-200' }}"></span>
+        {% endfor %}
+    </div>
+    <p class="mb-4 text-sm text-slate-700">
+        {% if not hasReadings %}
+            Aucun relevé pour l’instant. Chauffage éteint, notez la température extérieure et celle de chaque pièce : l’outil en déduira l’écart entre dedans et dehors.
+        {% elseif calibrated %}
+            {{ daysDone }} jours de relevés : le calibrage est possible. Des relevés par des températures différentes affinent encore les estimations.
+        {% else %}
+            {{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} de relevés sur {{ daysRequired }} : encore {{ daysRequired - daysDone }} pour des recommandations fiables. Variez les températures extérieures si vous le pouvez.
+        {% endif %}
+    </p>
+    <div class="flex flex-col gap-3 sm:flex-row">
+        <a href="{{ path('app_readings') }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 font-medium {{ calibrated ? 'border border-slate-500 bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-slate-700' }}">Saisir un relevé</a>
+        {% if hasReadings %}
+            <a href="{{ path('app_recommendations') }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 font-medium {{ calibrated ? 'bg-slate-900 text-white hover:bg-slate-700' : 'border border-slate-500 bg-white text-slate-900 hover:bg-slate-100' }}">Voir les recommandations</a>
+        {% endif %}
+    </div>
+</section>
+
+{% if upcoming %}
+    <section aria-labelledby="a-venir" class="mb-8">
+        <h2 id="a-venir" class="mb-3 text-lg font-semibold">À venir</h2>
+        <ul class="grid gap-3 sm:grid-cols-2">
+            {% for entry in upcoming %}
+                <li class="rounded-lg border border-slate-200 bg-white p-4">
+                    <p class="mb-1 text-sm font-semibold text-slate-800">{{ entry.label }}</p>
+                    <p class="text-sm">{% include 'recommendation/_summary.html.twig' with {item: entry.item} %}</p>
+                </li>
+            {% endfor %}
+        </ul>
+        <p class="mt-3 text-sm"><a href="{{ path('app_recommendations') }}" class="underline underline-offset-2">Toutes les recommandations, pièce par pièce</a></p>
+    </section>
+{% endif %}
+
+<section aria-labelledby="acces">
+    <h2 id="acces" class="mb-3 text-lg font-semibold">Accès rapide</h2>
+    <ul class="grid gap-3 sm:grid-cols-2">
+        {% set links = [
+            {path: 'app_readings', title: 'Relevés', text: 'Noter les températures de vos pièces, chauffage éteint.'},
+            {path: 'app_recommendations', title: 'Recommandations', text: 'Chauffer ou couper, jour par jour et pièce par pièce.'},
+            {path: 'app_deltas', title: 'Écarts', text: 'De combien chaque pièce reste plus chaude que le dehors.'},
+            {path: 'app_forecast', title: 'Prévisions', text: 'Les températures extérieures des quinze prochains jours.'},
+        ] %}
+        {% for link in links %}
+            <li>
+                <a href="{{ path(link.path) }}" class="block h-full rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-500 hover:bg-slate-50">
+                    <span class="block font-semibold text-slate-900">{{ link.title }}</span>
+                    <span class="mt-1 block text-sm text-slate-700">{{ link.text }}</span>
+                </a>
+            </li>
+        {% endfor %}
+    </ul>
+</section>
 {% endblock %}

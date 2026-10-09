@@ -9,6 +9,7 @@ use App\Enum\DaySlot;
 use App\Forecast\ForecastService;
 use App\Forecast\ForecastUnavailableException;
 use App\Forecast\HouseholdNotLocatedException;
+use App\Service\DateLabels;
 use App\Service\HouseholdProvider;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +19,7 @@ use Symfony\Component\Security\Http\Attribute\CurrentUser;
 final class ForecastController extends AbstractController
 {
     #[Route('/previsions', name: 'app_forecast', methods: ['GET'])]
-    public function index(HouseholdProvider $households, ForecastService $forecasts, #[CurrentUser] User $user): Response
+    public function index(HouseholdProvider $households, ForecastService $forecasts, DateLabels $labels, #[CurrentUser] User $user): Response
     {
         $household = $households->forUser($user);
 
@@ -32,9 +33,8 @@ final class ForecastController extends AbstractController
             $error = 'Les prévisions sont momentanément indisponibles. Réessayez dans quelques minutes.';
         }
 
-        $formatter = new \IntlDateFormatter('fr_FR', \IntlDateFormatter::NONE, \IntlDateFormatter::NONE, $household->getTimezone(), null, 'EEE d MMM');
         $rows = array_map(
-            static fn ($day): array => ['label' => (string) $formatter->format($day->date), 'day' => $day],
+            static fn ($day): array => ['label' => $labels->shortDay($day->date, $household->getTimezone()), 'day' => $day],
             $days,
         );
 

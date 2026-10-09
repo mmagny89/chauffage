@@ -3,3 +3,21 @@
 @theme {
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
+
+@layer base {
+    /* Un focus clavier toujours visible, sur tout élément interactif (WCAG 2.4.7, 2.4.11). */
+    :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+        outline: 2px solid var(--color-slate-900);
+        outline-offset: 2px;
+    }
+
+    /* Respecte la préférence « réduire les animations » du système. */
+    @media (prefers-reduced-motion: reduce) {
+        *, ::before, ::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}
