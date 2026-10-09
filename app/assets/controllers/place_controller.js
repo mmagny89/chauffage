@@ -2,7 +2,7 @@ import { Controller } from '@hotwired/stimulus';
 
 /*
  * Affiche le champ « Nom du lieu » seulement quand « Autre lieu… » est choisi.
- * Sans JavaScript, le champ reste visible et facultatif.
+ * Sans JavaScript, le champ reste visible.
  */
 export default class extends Controller {
     static targets = ['select', 'custom'];

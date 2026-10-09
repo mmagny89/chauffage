@@ -9,25 +9,29 @@ use PHPUnit\Framework\TestCase;
 
 final class RoomCatalogTest extends TestCase
 {
-    public function testGroupsRoomsOwnPlacesAndOther(): void
+    public function testOffersAllRoomsThenOtherWhenNothingIsDeclared(): void
     {
-        $choices = (new RoomCatalog())->choices(['Salon', 'atelier', 'Cave', 'Salle de jeux']);
+        $choices = (new RoomCatalog())->availableChoices([]);
 
-        self::assertSame(['Pièces', 'Vos autres lieux', 'Autre'], array_keys($choices));
-        self::assertSame(['atelier' => 'atelier', 'Salle de jeux' => 'Salle de jeux'], $choices['Vos autres lieux'], 'Un lieu déjà dans la liste standard n’est pas répété.');
+        self::assertSame(['Pièces', 'Autre'], array_keys($choices));
+        self::assertSame(RoomCatalog::ROOMS, array_keys($choices['Pièces']));
         self::assertSame(['Autre lieu…' => RoomCatalog::OTHER], $choices['Autre']);
-        self::assertContains('Salon', $choices['Pièces']);
     }
 
-    public function testOwnPlacesGroupIsOmittedWhenEmpty(): void
+    public function testDeclaredRoomsAreNoLongerOfferedIgnoringCase(): void
     {
-        self::assertSame(['Pièces', 'Autre'], array_keys((new RoomCatalog())->choices([])));
+        $choices = (new RoomCatalog())->availableChoices(['salon', 'CAVE', 'Atelier']);
+
+        self::assertArrayNotHasKey('Salon', $choices['Pièces']);
+        self::assertArrayNotHasKey('Cave', $choices['Pièces']);
+        self::assertArrayHasKey('Cuisine', $choices['Pièces']);
+        self::assertCount(\count(RoomCatalog::ROOMS) - 2, $choices['Pièces'], 'Un lieu hors liste (Atelier) n’en retire aucun.');
     }
 
-    public function testStandardRoomMatchIsCaseInsensitive(): void
+    public function testRoomsGroupDisappearsWhenEveryRoomIsDeclared(): void
     {
-        $choices = (new RoomCatalog())->choices(['salon', 'CAVE']);
+        $choices = (new RoomCatalog())->availableChoices(RoomCatalog::ROOMS);
 
-        self::assertArrayNotHasKey('Vos autres lieux', $choices);
+        self::assertSame(['Autre'], array_keys($choices));
     }
 }

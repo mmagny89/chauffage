@@ -57,11 +57,38 @@ class Household
         $this->user = $user;
         $this->targets = new ArrayCollection();
 
+        $this->completeTargets();
+    }
+
+    /**
+     * Ajoute les températures visées manquantes (valeurs par défaut), sans toucher aux existantes.
+     *
+     * @return int nombre de températures ajoutées
+     */
+    public function completeTargets(): int
+    {
+        $added = 0;
         foreach (Weekday::cases() as $day) {
             foreach (DaySlot::cases() as $slot) {
-                $this->targets->add(new HeatingTarget($this, $day, $slot, $slot->defaultTarget()));
+                if (!$this->hasTarget($day, $slot)) {
+                    $this->targets->add(new HeatingTarget($this, $day, $slot, $slot->defaultTarget()));
+                    ++$added;
+                }
             }
         }
+
+        return $added;
+    }
+
+    private function hasTarget(Weekday $day, DaySlot $slot): bool
+    {
+        foreach ($this->targets as $target) {
+            if ($target->getDayOfWeek() === $day && $target->getSlot() === $slot) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function getId(): ?int

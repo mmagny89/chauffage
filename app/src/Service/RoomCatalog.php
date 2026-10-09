@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Service;
 
 /**
- * Les lieux proposés dans la liste déroulante : les pièces usuelles d'une maison,
- * les lieux déjà utilisés par le foyer, et « Autre » pour un lieu qui n'y figure pas.
+ * Les pièces usuelles d'une maison proposées à l'ajout d'un lieu, et « Autre lieu… »
+ * pour un lieu qui n'y figure pas.
  */
 final class RoomCatalog
 {
@@ -35,23 +35,24 @@ final class RoomCatalog
     ];
 
     /**
-     * Choix pour un ChoiceType groupé (libellé => valeur).
+     * Choix de la liste déroulante d'ajout d'un lieu : les pièces usuelles pas encore
+     * déclarées, puis « Autre lieu… ».
      *
-     * @param list<string> $householdPlaces lieux déjà enregistrés pour le foyer
+     * @param list<string> $declared noms des lieux déjà déclarés par le foyer
      *
-     * @return array<string, array<string, string>>
+     * @return array<string, array<string, string>> groupe => libellé => valeur
      */
-    public function choices(array $householdPlaces): array
+    public function availableChoices(array $declared): array
     {
-        $known = array_map(mb_strtolower(...), self::ROOMS);
-        $own = array_values(array_filter(
-            $householdPlaces,
-            static fn (string $name): bool => !\in_array(mb_strtolower($name), $known, true),
+        $taken = array_map(mb_strtolower(...), $declared);
+        $rooms = array_values(array_filter(
+            self::ROOMS,
+            static fn (string $room): bool => !\in_array(mb_strtolower($room), $taken, true),
         ));
 
-        $groups = ['Pièces' => array_combine(self::ROOMS, self::ROOMS)];
-        if ([] !== $own) {
-            $groups['Vos autres lieux'] = array_combine($own, $own);
+        $groups = [];
+        if ([] !== $rooms) {
+            $groups['Pièces'] = array_combine($rooms, $rooms);
         }
         $groups['Autre'] = ['Autre lieu…' => self::OTHER];
 

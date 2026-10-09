@@ -10,8 +10,9 @@ use App\Repository\HouseholdRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * Le foyer d'un compte. Il est créé à l'inscription ; l'accès le recrée pour un
- * compte qui en serait dépourvu (créé avant le modèle, ou à la main).
+ * Le foyer d'un compte. Il est créé à l'inscription ; l'accès le recrée pour un compte
+ * qui en serait dépourvu, et complète les températures visées qui lui manqueraient
+ * (foyer créé à la main, ou créneau ajouté depuis).
  */
 final readonly class HouseholdProvider
 {
@@ -27,6 +28,8 @@ final readonly class HouseholdProvider
         if (null === $household) {
             $household = new Household($user);
             $this->entityManager->persist($household);
+            $this->entityManager->flush();
+        } elseif ($household->completeTargets() > 0) {
             $this->entityManager->flush();
         }
 

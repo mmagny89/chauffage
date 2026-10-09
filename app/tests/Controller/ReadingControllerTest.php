@@ -9,7 +9,6 @@ use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Service\RoomCatalog;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\Clock\Clock;
@@ -35,6 +34,13 @@ final class ReadingControllerTest extends WebTestCase
         parent::tearDown();
     }
 
+    public function testAnonymousVisitorIsSentToLogin(): void
+    {
+        $this->client->request('GET', '/releves');
+
+        self::assertResponseRedirects('/login');
+    }
+
     public function testTellsToTakeReadingsWithTheHeatingOff(): void
     {
         $this->client->loginUser($this->createUser('a@example.com'));
@@ -45,55 +51,150 @@ final class ReadingControllerTest extends WebTestCase
         self::assertSelectorTextContains('aside[role=note]', 'sans chauffage');
     }
 
-    public function testAnonymousVisitorIsSentToLogin(): void
-    {
-        $this->client->request('GET', '/releves');
-
-        self::assertResponseRedirects('/login');
-    }
-
-    public function testPageProvidesWhatTheCollectionControllerNeeds(): void
+    public function testWithoutDeclaredPlacesTheHouseholdIsSentToSettings(): void
     {
         $this->client->loginUser($this->createUser('a@example.com'));
 
-        $crawler = $this->client->request('GET', '/releves');
+        $this->client->request('GET', '/releves');
 
-        $holder = $crawler->filter('[data-controller=collection]');
-        self::assertCount(1, $holder);
-        self::assertSame('1', $holder->attr('data-collection-index-value'));
-        $prototype = (string) $holder->attr('data-collection-prototype-value');
-        self::assertStringContainsString('day_readings[rows][__name__][place]', $prototype);
-        self::assertStringContainsString('data-controller="place"', $prototype);
-        self::assertStringContainsString('data-collection-target="item"', $prototype);
-        self::assertStringContainsString('data-action="collection#remove"', $prototype);
-        self::assertSelectorExists('button[data-action="collection#add"]');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', 'Déclarez d’abord les lieux');
+        self::assertSelectorExists('a[href="/reglages#lieux"]');
+        self::assertSelectorNotExists('form[name=reading_session]');
     }
 
-    public function testRecordsADayWithSeveralPlacesAndReusesPlacesIgnoringCase(): void
+    public function testFormAsksForEveryDeclaredPlace(): void
     {
         $user = $this->createUser('a@example.com');
+        $this->createPlaces($user, ['Salon', 'Cave', 'Écurie']);
         $this->client->loginUser($user);
 
-        $this->submit('2026-10-08', [
-            ['Salon', '07:30', '4.5', '18.0'],
-            ['Cuisine', '07:30', '4.5', '16.5'],
-        ]);
+        $crawler = $this->client->request('GET', '/releves');
+
+        $labels = $crawler->filter('fieldset label')->each(static fn ($label) => $label->text());
+        self::assertSame(['Cave', 'Écurie', 'Salon'], $labels, 'Un champ par lieu, par ordre alphabétique.');
+        self::assertCount(3, $crawler->filter('input[name^="reading_session[indoor]"][type=number]'));
+        self::assertSelectorExists('input[name="reading_session[outdoor]"]');
+        self::assertSelectorExists('input[name="reading_session[time]"]');
+    }
+
+    public function testRecordsOneReadingPerPlaceWithSharedTimeAndOutdoorTemperature(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon', 'Cave']);
+        $this->client->loginUser($user);
+
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0', 'Cave' => '12.5'], $places);
+
         self::assertResponseRedirects('/releves');
         $this->client->followRedirect();
         self::assertSelectorTextContains('[role=status]', '2 relevés enregistrés');
 
-        $this->submit('2026-10-08', [['@salon', '19:00', '9.0', '19.5']]);
-        self::assertResponseRedirects('/releves');
+        $readings = $this->em->getRepository(Reading::class)->findAll();
+        self::assertCount(2, $readings);
+        foreach ($readings as $reading) {
+            self::assertSame('2026-10-08 07:30', $reading->getMeasuredAt()->format('Y-m-d H:i'));
+            self::assertSame(4.5, $reading->getOutdoorTemperature());
+        }
+        $byPlace = [];
+        foreach ($readings as $reading) {
+            $byPlace[$reading->getPlace()->getName()] = $reading->getIndoorTemperature();
+        }
+        self::assertSame(['Cave' => 12.5, 'Salon' => 18.0], $byPlace);
+    }
 
-        self::assertSame(3, $this->em->getRepository(Reading::class)->count([]));
-        self::assertSame(2, $this->em->getRepository(Place::class)->count([]), '« salon » réutilise « Salon ».');
+    public function testEveryPlaceMustBeFilledAndNothingIsSavedOtherwise(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon', 'Cave']);
+        $this->client->loginUser($user);
+
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0', 'Cave' => ''], $places);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'Indiquez la température de ce lieu.');
+        self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
+    }
+
+    public function testPlacesAddedLaterAreAskedForToo(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->createPlaces($user, ['Salon']);
+        $this->client->loginUser($user);
+        $this->client->request('GET', '/releves');
+        self::assertCount(1, $this->client->getCrawler()->filter('fieldset input[type=number]'));
+
+        $this->createPlaces($user, ['Chambre parentale']);
+
+        $this->client->request('GET', '/releves');
+        self::assertCount(2, $this->client->getCrawler()->filter('fieldset input[type=number]'));
+    }
+
+    public function testExistingReadingAtTheSameInstantRejectsTheWholeSession(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon', 'Cave']);
+        $this->client->loginUser($user);
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0', 'Cave' => '12.5'], $places);
+
+        $this->submit('2026-10-08', '07:30', '5.0', ['Salon' => '19.0', 'Cave' => '13.0'], $places);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'Un relevé existe déjà pour ce lieu à cette heure.');
+        self::assertSame(2, $this->em->getRepository(Reading::class)->count([]));
+    }
+
+    public function testPartialClashRecordsNothing(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon']);
+        $this->client->loginUser($user);
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0'], $places);
+
+        $more = $this->createPlaces($user, ['Cave']);
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0', 'Cave' => '12.0'], [...$places, ...$more]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSame(1, $this->em->getRepository(Reading::class)->count([]), 'La cave n’est pas enregistrée seule.');
+    }
+
+    public function testFutureInstantIsRefusedInTheHouseholdTimezone(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon']);
+        $this->client->loginUser($user);
+
+        // Il est 14 h à Paris : 14 h 30 aujourd'hui est dans le futur, 13 h 59 non.
+        $this->submit('2026-10-09', '14:30', '12.0', ['Salon' => '19.0'], $places);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'Cette heure est dans le futur.');
+
+        $this->submit('2026-10-09', '13:59', '12.0', ['Salon' => '19.0'], $places);
+        self::assertResponseRedirects('/releves');
+    }
+
+    public function testImplausibleTemperaturesAreRefused(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon']);
+        $this->client->loginUser($user);
+
+        $this->submit('2026-10-08', '07:30', '99', ['Salon' => '18.0'], $places);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'La température extérieure doit être comprise entre');
+
+        $this->submit('2026-10-08', '07:30', '5', ['Salon' => '80'], $places);
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'La température intérieure doit être comprise entre');
+        self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
     }
 
     public function testListShowsReadingsWithDeltaAndSlot(): void
     {
         $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon']);
         $this->client->loginUser($user);
-        $this->submit('2026-10-08', [['Salon', '07:30', '4.5', '18.0']]);
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0'], $places);
 
         $crawler = $this->client->request('GET', '/releves');
 
@@ -104,118 +205,14 @@ final class ReadingControllerTest extends WebTestCase
         self::assertSelectorTextContains('caption', 'Jeudi 8 octobre 2026');
     }
 
-    public function testExistingReadingIsRefused(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-        $this->submit('2026-10-08', [['Salon', '07:30', '4.5', '18.0']]);
-
-        $this->submit('2026-10-08', [['@SALON', '07:30', '5.0', '19.0']]);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'Un relevé existe déjà pour ce lieu à cette heure.');
-        self::assertSame(1, $this->em->getRepository(Reading::class)->count([]));
-    }
-
-    public function testRejectsEverythingWhenOneRowIsRefused(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-        $this->submit('2026-10-08', [['Salon', '07:30', '4.5', '18.0']]);
-
-        $this->submit('2026-10-08', [
-            ['Cuisine', '08:00', '5.0', '17.0'],
-            ['Salon', '07:30', '5.0', '19.0'],
-        ]);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(1, $this->em->getRepository(Reading::class)->count([]));
-        self::assertSame(1, $this->em->getRepository(Place::class)->count([]));
-    }
-
-    public function testFutureInstantIsRefusedInTheHouseholdTimezone(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-
-        // Il est 14 h à Paris : 14 h 30 aujourd'hui est dans le futur, 13 h 59 non.
-        $this->submit('2026-10-09', [['Salon', '14:30', '12.0', '19.0']]);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'Cette heure est dans le futur.');
-
-        $this->submit('2026-10-09', [['Salon', '13:59', '12.0', '19.0']]);
-        self::assertResponseRedirects('/releves');
-    }
-
-    public function testImplausibleTemperaturesAndDuplicateRowsAreRefused(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-
-        $this->submit('2026-10-08', [['Salon', '07:30', '99', '18.0']]);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'La température extérieure doit être comprise entre');
-
-        $this->submit('2026-10-08', [
-            ['Salon', '07:30', '5.0', '18.0'],
-            ['@salon', '07:30', '5.0', '18.0'],
-        ]);
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'apparaît déjà à la même heure');
-        self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
-    }
-
-    public function testPlaceIsAGroupedDropdownOfRoomsAndOwnPlaces(): void
-    {
-        $user = $this->createUser('a@example.com');
-        $this->client->loginUser($user);
-        $this->submit('2026-10-08', [['@Atelier', '07:30', '4.5', '16.0']]);
-
-        $crawler = $this->client->request('GET', '/releves');
-
-        $select = $crawler->filter('select[name="day_readings[rows][0][place]"]');
-        self::assertCount(1, $select);
-        self::assertStringContainsString('w-full rounded-md border', (string) $select->attr('class'), 'La liste est habillée comme les autres champs.');
-        self::assertGreaterThan(10, $select->filter('optgroup[label=Pièces] option')->count());
-        self::assertSame('Cuisine', $select->filter('optgroup[label=Pièces] option')->eq(3)->text());
-        self::assertSame(['Atelier'], $select->filter('optgroup[label="Vos autres lieux"] option')->each(static fn ($o) => $o->text()));
-        self::assertSame('Autre lieu…', $select->filter('optgroup[label=Autre] option')->text());
-    }
-
-    public function testPlaceMustBeOneOfTheChoices(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-
-        $this->submit('2026-10-08', [['Salon de la reine', '07:30', '4.5', '18.0']]);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
-    }
-
-    public function testOtherPlaceNeedsAName(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-
-        $this->submit('2026-10-08', [['@', '07:30', '4.5', '18.0']]);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'Indiquez le nom du lieu.');
-    }
-
-    public function testADayNeedsAtLeastOnePlace(): void
-    {
-        $this->client->loginUser($this->createUser('a@example.com'));
-
-        $this->submit('2026-10-08', []);
-
-        self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('body', 'Renseignez au moins un lieu pour ce jour.');
-    }
-
     public function testProgressCountsDistinctDays(): void
     {
         $user = $this->createUser('a@example.com');
+        $places = $this->createPlaces($user, ['Salon']);
         $this->client->loginUser($user);
-        $this->submit('2026-10-07', [['Salon', '07:30', '4.0', '18.0'], ['Salon', '19:00', '6.0', '19.0']]);
-        self::assertResponseRedirects('/releves');
-        self::assertSame(1, $this->em->getRepository(Place::class)->count([]), 'Un lieu nouveau cité deux fois dans le même envoi n’est créé qu’une fois.');
-        $this->submit('2026-10-08', [['Salon', '07:30', '4.5', '18.0']]);
+        $this->submit('2026-10-07', '07:30', '4.0', ['Salon' => '18.0'], $places);
+        $this->submit('2026-10-07', '19:00', '6.0', ['Salon' => '19.0'], $places);
+        $this->submit('2026-10-08', '07:30', '4.5', ['Salon' => '18.0'], $places);
 
         $this->client->request('GET', '/releves');
 
@@ -226,7 +223,7 @@ final class ReadingControllerTest extends WebTestCase
     public function testOwnerCanDeleteAReading(): void
     {
         $user = $this->createUser('a@example.com');
-        $reading = $this->createReading($user);
+        $this->createReading($user);
         $this->client->loginUser($user);
 
         $crawler = $this->client->request('GET', '/releves');
@@ -234,7 +231,6 @@ final class ReadingControllerTest extends WebTestCase
 
         self::assertResponseRedirects('/releves');
         self::assertSame(0, $this->em->getRepository(Reading::class)->count([]));
-        self::assertNotNull($reading);
     }
 
     public function testSomeoneElseCannotDeleteAReading(): void
@@ -261,7 +257,7 @@ final class ReadingControllerTest extends WebTestCase
         self::assertSame(1, $this->em->getRepository(Reading::class)->count([]));
     }
 
-    public function testEachHouseholdOnlySeesItsOwnReadings(): void
+    public function testEachHouseholdOnlySeesItsOwnPlacesAndReadings(): void
     {
         $this->createReading($this->createUser('a@example.com'));
         $this->client->loginUser($this->createUser('b@example.com'));
@@ -270,28 +266,55 @@ final class ReadingControllerTest extends WebTestCase
 
         self::assertSelectorNotExists('tbody tr');
         self::assertSelectorTextContains('body', 'Aucun relevé pour le moment.');
+        self::assertSelectorTextContains('body', 'Déclarez d’abord les lieux');
     }
 
     /**
-     * @param list<array{0: string, 1: string, 2: string, 3: string, 4?: string}> $rows lieu (de la liste, ou « @nom » pour un lieu libre), heure, extérieur, intérieur
+     * @param array<string, string> $indoor température intérieure par nom de lieu
+     * @param list<Place>           $places
      */
-    private function submit(string $date, array $rows): void
+    private function submit(string $date, string $time, string $outdoor, array $indoor, array $places): void
     {
         $crawler = $this->client->request('GET', '/releves');
-        $form = $crawler->selectButton('Enregistrer le jour')->form();
+        $form = $crawler->selectButton('Enregistrer le relevé')->form();
         $values = $form->getPhpValues();
-        $values['day_readings']['date'] = $date;
-        $values['day_readings']['rows'] = [];
-        foreach ($rows as $index => [$place, $time, $outdoor, $indoor]) {
-            $custom = '';
-            if (str_starts_with($place, '@')) {
-                $custom = substr($place, 1);
-                $place = RoomCatalog::OTHER;
-            }
-            $values['day_readings']['rows'][$index] = ['place' => $place, 'customPlace' => $custom, 'time' => $time, 'outdoor' => $outdoor, 'indoor' => $indoor];
+        $values['reading_session']['date'] = $date;
+        $values['reading_session']['time'] = $time;
+        $values['reading_session']['outdoor'] = $outdoor;
+        foreach ($places as $place) {
+            $values['reading_session']['indoor']['p'.$place->getId()] = $indoor[$place->getName()] ?? '';
         }
 
         $this->client->request('POST', $form->getUri(), $values);
+    }
+
+    /**
+     * @param list<string> $names
+     *
+     * @return list<Place>
+     */
+    private function createPlaces(User $user, array $names): array
+    {
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $places = [];
+        foreach ($names as $name) {
+            $place = new Place($household, $name);
+            $this->em->persist($place);
+            $places[] = $place;
+        }
+        $this->em->flush();
+
+        return $places;
+    }
+
+    private function createReading(User $user): Reading
+    {
+        [$place] = $this->createPlaces($user, ['Salon']);
+        $reading = new Reading($place, new \DateTimeImmutable('2026-10-08 07:30'), 5.0, 18.0);
+        $this->em->persist($reading);
+        $this->em->flush();
+
+        return $reading;
     }
 
     private function createUser(string $email): User
@@ -302,17 +325,5 @@ final class ReadingControllerTest extends WebTestCase
         $this->em->flush();
 
         return $user;
-    }
-
-    private function createReading(User $user): Reading
-    {
-        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
-        $place = new Place($household, 'Salon');
-        $reading = new Reading($place, new \DateTimeImmutable('2026-10-08 07:30'), 5.0, 18.0);
-        $this->em->persist($place);
-        $this->em->persist($reading);
-        $this->em->flush();
-
-        return $reading;
     }
 }

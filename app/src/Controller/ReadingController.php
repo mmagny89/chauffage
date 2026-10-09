@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Dto\DayReadingsInput;
-use App\Dto\ReadingRowInput;
+use App\Dto\ReadingSessionInput;
 use App\Entity\Reading;
 use App\Entity\User;
 use App\Exception\ReadingsRejectedException;
-use App\Form\DayReadingsType;
+use App\Form\ReadingSessionType;
 use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
 use App\Security\Voter\ReadingVoter;
 use App\Service\Calibration;
 use App\Service\HouseholdProvider;
-use App\Service\RoomCatalog;
 use App\Service\ReadingRecorder;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -33,7 +31,6 @@ final class ReadingController extends AbstractController
         private readonly HouseholdProvider $households,
         private readonly ReadingRepository $readings,
         private readonly PlaceRepository $places,
-        private readonly RoomCatalog $rooms,
     ) {
     }
 
@@ -41,27 +38,31 @@ final class ReadingController extends AbstractController
     public function index(Request $request, ReadingRecorder $recorder, ClockInterface $clock, #[CurrentUser] User $user): Response
     {
         $household = $this->households->forUser($user);
+        $places = $this->places->findByHousehold($household);
 
-        $input = new DayReadingsInput();
-        $input->date = new \DateTimeImmutable($clock->now()->setTimezone(new \DateTimeZone($household->getTimezone()))->format('Y-m-d'));
-        $input->rows = [new ReadingRowInput()];
+        $form = null;
+        $status = Response::HTTP_OK;
+        if ([] !== $places) {
+            $input = new ReadingSessionInput();
+            $input->date = new \DateTimeImmutable($clock->now()->setTimezone(new \DateTimeZone($household->getTimezone()))->format('Y-m-d'));
 
-        $form = $this->createForm(DayReadingsType::class, $input, [
-            'place_choices' => $this->rooms->choices($this->places->namesOf($household)),
-        ]);
-        $form->handleRequest($request);
+            $form = $this->createForm(ReadingSessionType::class, $input, ['places' => $places]);
+            $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $count = $recorder->record($household, $input);
-                $this->addFlash('success', 1 === $count ? '1 relevé enregistré.' : \sprintf('%d relevés enregistrés.', $count));
+            if ($form->isSubmitted() && $form->isValid()) {
+                try {
+                    $count = $recorder->record($household, $input, $places);
+                    $this->addFlash('success', 1 === $count ? '1 relevé enregistré.' : \sprintf('%d relevés enregistrés (un par lieu).', $count));
 
-                return $this->redirectToRoute('app_readings');
-            } catch (ReadingsRejectedException $exception) {
-                foreach ($exception->reasons as $index => $reason) {
-                    $form->get('rows')->get((string) $index)->get('time')->addError(new FormError($reason));
+                    return $this->redirectToRoute('app_readings');
+                } catch (ReadingsRejectedException $exception) {
+                    foreach ($exception->reasons as $field => $reason) {
+                        $target = 'time' === $field ? $form->get('time') : $form->get('indoor')->get($field);
+                        $target->addError(new FormError($reason));
+                    }
                 }
             }
+            $status = $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
         }
 
         $dayFormatter = new \IntlDateFormatter('fr_FR', \IntlDateFormatter::FULL, \IntlDateFormatter::NONE, $household->getTimezone());
@@ -74,10 +75,11 @@ final class ReadingController extends AbstractController
 
         return $this->render('reading/index.html.twig', [
             'form' => $form,
+            'places' => $places,
             'days' => $days,
             'daysDone' => $this->readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,
-        ], new Response(status: $form->isSubmitted() && !$form->isValid() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+        ], new Response(status: $status));
     }
 
     #[Route('/{id}/supprimer', name: 'app_reading_delete', requirements: ['id' => '\d+'], methods: ['POST'])]

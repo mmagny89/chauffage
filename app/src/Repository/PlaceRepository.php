@@ -34,19 +34,17 @@ class PlaceRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return list<string>
+     * Lieux du foyer, triés par nom (ordre alphabétique français).
+     *
+     * @return list<Place>
      */
-    public function namesOf(Household $household): array
+    public function findByHousehold(Household $household): array
     {
-        /** @var list<array{name: string}> $rows */
-        $rows = $this->createQueryBuilder('p')
-            ->select('p.name')
-            ->andWhere('p.household = :household')
-            ->setParameter('household', $household)
-            ->orderBy('p.name')
-            ->getQuery()
-            ->getArrayResult();
+        /** @var list<Place> $places */
+        $places = $this->findBy(['household' => $household]);
+        $collator = new \Collator('fr_FR');
+        usort($places, static fn (Place $a, Place $b): int => $collator->compare($a->getName(), $b->getName()));
 
-        return array_column($rows, 'name');
+        return $places;
     }
 }

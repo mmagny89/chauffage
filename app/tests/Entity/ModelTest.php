@@ -35,6 +35,21 @@ final class ModelTest extends KernelTestCase
         }
     }
 
+    public function testCompleteTargetsFillsOnlyWhatIsMissing(): void
+    {
+        $household = new Household($this->user());
+        $household->targetFor(Weekday::Monday, DaySlot::Night)->setTemperature(15.5);
+        $household->getTargets()->removeElement($household->targetFor(Weekday::Sunday, DaySlot::Evening));
+        $household->getTargets()->removeElement($household->targetFor(Weekday::Tuesday, DaySlot::Morning));
+
+        self::assertSame(2, $household->completeTargets());
+
+        self::assertCount(28, $household->getTargets());
+        self::assertSame(20.0, $household->targetFor(Weekday::Sunday, DaySlot::Evening)->getTemperature());
+        self::assertSame(15.5, $household->targetFor(Weekday::Monday, DaySlot::Night)->getTemperature(), 'Une cible existante n’est pas écrasée.');
+        self::assertSame(0, $household->completeTargets(), 'Rien à ajouter la seconde fois.');
+    }
+
     public function testHouseholdLocationIsStoredAsDecimals(): void
     {
         $household = new Household($this->user());

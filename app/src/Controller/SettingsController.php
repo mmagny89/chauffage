@@ -12,7 +12,9 @@ use App\Enum\Weekday;
 use App\Form\WeekTargetsType;
 use App\Geocoding\GeocoderInterface;
 use App\Geocoding\GeocodingUnavailableException;
+use App\Repository\PlaceRepository;
 use App\Service\HouseholdProvider;
+use App\Service\RoomCatalog;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,6 +31,8 @@ final class SettingsController extends AbstractController
         private readonly HouseholdProvider $households,
         private readonly EntityManagerInterface $entityManager,
         private readonly RateLimiterFactoryInterface $geocodingLimiter,
+        private readonly PlaceRepository $placeRepository,
+        private readonly RoomCatalog $rooms,
     ) {
     }
 
@@ -76,8 +80,12 @@ final class SettingsController extends AbstractController
             }
         }
 
+        $places = $this->placeRepository->findByHousehold($household);
+
         return $this->render('settings/index.html.twig', [
             'household' => $household,
+            'places' => $places,
+            'placeChoices' => $this->rooms->availableChoices(array_map(static fn ($p): string => $p->getName(), $places)),
             'form' => $form,
             'slots' => DaySlot::chronological(),
             'weekdays' => Weekday::cases(),
