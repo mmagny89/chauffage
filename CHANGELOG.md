@@ -17,6 +17,8 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
 - **Comptes** : inscription avec confirmation de l'adresse par un lien signé, connexion
   refusée tant que l'adresse n'est pas confirmée, mot de passe oublié. Un compte
   correspond à un foyer.
+- **Mise en route** : à l'inscription, on règle d'abord (ville, lieux, températures visées) avant de pouvoir
+  saisir un relevé ; toutes les autres pages y renvoient tant que ce n'est pas terminé.
 - **Lieux** : déclarés dans les réglages (pièces usuelles ou nom libre), renommables et
   supprimables ; supprimer un lieu supprime ses relevés.
 - **Relevés** : à une date et une heure, la température extérieure et la température

@@ -333,7 +333,7 @@ final class SettingsControllerTest extends WebTestCase
     {
         $user = (new User())->setEmail($email)->setPassword('x')->setVerified(true);
         $this->em->persist($user);
-        $this->em->persist(new Household($user));
+        $this->em->persist((new Household($user))->completeSetup(new \DateTimeImmutable('2026-01-01')));
         $this->em->flush();
 
         return $user;

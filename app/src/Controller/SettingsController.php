@@ -17,6 +17,7 @@ use App\Geocoding\GeocodingUnavailableException;
 use App\Repository\PlaceRepository;
 use App\Service\HouseholdProvider;
 use App\Service\RoomCatalog;
+use App\Service\SetupChecklist;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,6 +36,7 @@ final class SettingsController extends AbstractController
         private readonly RateLimiterFactoryInterface $geocodingLimiter,
         private readonly PlaceRepository $placeRepository,
         private readonly RoomCatalog $rooms,
+        private readonly SetupChecklist $checklist,
     ) {
     }
 
@@ -109,6 +111,7 @@ final class SettingsController extends AbstractController
 
         return $this->render('settings/index.html.twig', [
             'household' => $household,
+            'setup' => $household->isSetUp() ? null : $this->checklist->progress($household),
             'places' => $places,
             'placeChoices' => $this->rooms->availableChoices(array_map(static fn ($p): string => $p->getName(), $places)),
             'form' => $form,

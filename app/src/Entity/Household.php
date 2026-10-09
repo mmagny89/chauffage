@@ -46,6 +46,10 @@ class Household
     #[Assert\Timezone]
     private string $timezone = self::DEFAULT_TIMEZONE;
 
+    /** Date à laquelle la mise en route (ville, lieux, températures visées) a été terminée ; null tant qu'elle ne l'est pas. */
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $setupCompletedAt = null;
+
     /**
      * @var Collection<int, HeatingTarget>
      */
@@ -119,6 +123,18 @@ class Household
     public function getTimezone(): string
     {
         return $this->timezone;
+    }
+
+    public function isSetUp(): bool
+    {
+        return null !== $this->setupCompletedAt;
+    }
+
+    public function completeSetup(\DateTimeImmutable $at): static
+    {
+        $this->setupCompletedAt ??= $at;
+
+        return $this;
     }
 
     public function locate(string $city, float $latitude, float $longitude, string $timezone): static

@@ -1,12 +1,32 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Réglages{% endblock %}
+{% block title %}{{ setup ? 'Mise en route' : 'Réglages' }}{% endblock %}
 
 {% block body %}
-<h1 class="mb-6 text-2xl font-semibold">Réglages</h1>
+<h1 class="mb-6 text-2xl font-semibold">{{ setup ? 'Mise en route' : 'Réglages' }}</h1>
+
+{% if setup %}
+<section aria-labelledby="mise-en-route" class="mb-10 rounded-lg border border-sky-300 bg-sky-50 p-5 text-sky-950">
+    <h2 id="mise-en-route" class="mb-2 text-lg font-semibold">Bienvenue : réglez d’abord votre foyer</h2>
+    <p class="mb-4 text-sm">Avant le premier relevé, l’outil a besoin de savoir <strong>où vous habitez</strong> (pour les prévisions), <strong>quelles pièces</strong> vous relevez, et <strong>quelle température</strong> vous visez. Trois étapes, dans l’ordre de la page :</p>
+    <ol class="mb-5 space-y-2 text-sm">
+        <li><span aria-hidden="true">{{ setup.hasCity ? '✓' : '○' }}</span> <a href="#ville" class="font-medium underline underline-offset-2">1. Votre ville</a> — {% if setup.hasCity %}faite : {{ household.city }}{% else %}à choisir{% endif %}</li>
+        <li><span aria-hidden="true">{{ setup.placeCount > 0 ? '✓' : '○' }}</span> <a href="#lieux" class="font-medium underline underline-offset-2">2. Vos lieux</a> — {% if setup.placeCount > 0 %}{{ setup.placeCount }} déclaré{{ setup.placeCount > 1 ? 's' : '' }}{% else %}au moins un à déclarer{% endif %}</li>
+        <li><span aria-hidden="true">○</span> <a href="#cibles" class="font-medium underline underline-offset-2">3. Vos températures visées</a> — des valeurs vous sont proposées : relisez-les et ajustez-les</li>
+    </ol>
+    <form method="post" action="{{ path('app_setup_finish') }}" class="max-w-md">
+        <input type="hidden" name="_token" value="{{ csrf_token('finish-setup') }}">
+        <button type="submit" {% if not setup.isComplete %}disabled aria-describedby="reste-a-faire"{% endif %}
+                class="w-full rounded-md bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900 disabled:cursor-not-allowed disabled:bg-slate-400 disabled:text-slate-900">Terminer la mise en route et saisir un relevé</button>
+        {% if not setup.isComplete %}
+            <p id="reste-a-faire" class="mt-2 text-sm">Il reste à faire : {{ setup.missing|join(', ') }}.</p>
+        {% endif %}
+    </form>
+</section>
+{% endif %}
 
 <section aria-labelledby="ville" class="mb-10">
-    <h2 id="ville" class="mb-2 text-lg font-semibold">Votre ville</h2>
+    <h2 id="ville" class="mb-2 text-lg font-semibold">{{ setup ? '1. ' : '' }}Votre ville</h2>
     <p class="mb-4 text-sm text-slate-700">
         {% if household.city %}
             Ville actuelle : <strong>{{ household.city }}</strong>. Les prévisions de température en dépendent.
@@ -54,7 +74,7 @@
 </section>
 
 <section id="lieux" aria-labelledby="titre-lieux" class="mb-10">
-    <h2 id="titre-lieux" class="mb-2 text-lg font-semibold">Vos lieux</h2>
+    <h2 id="titre-lieux" class="mb-2 text-lg font-semibold">{{ setup ? '2. ' : '' }}Vos lieux</h2>
     <p class="mb-4 max-w-2xl text-sm text-slate-700">Les pièces où vous relevez la température. À chaque relevé, vous renseignez <strong>tous</strong> ces lieux : la moyenne et les recommandations reposent sur eux.</p>
 
     {% if places is empty %}
@@ -104,7 +124,7 @@
 </section>
 
 <section aria-labelledby="cibles" class="mb-10">
-    <h2 id="cibles" class="mb-2 text-lg font-semibold">Températures visées du foyer</h2>
+    <h2 id="cibles" class="mb-2 text-lg font-semibold">{{ setup ? '3. ' : '' }}Températures visées du foyer</h2>
     <p class="mb-4 max-w-2xl text-sm text-slate-700">Température intérieure en dessous de laquelle vous souhaitez chauffer, pour chaque moment de chaque jour de la semaine (par exemple plus bas en semaine quand la maison est vide). Matin 6 h – 12 h, après-midi 12 h – 18 h, soirée 18 h – 22 h, nuit 22 h – 6 h le lendemain.</p>
 
     {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
