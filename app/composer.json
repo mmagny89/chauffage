@@ -1,8 +1,8 @@
 {
-    "name": "symfony/skeleton",
+    "name": "mmagny89/chauffage",
     "type": "project",
     "license": "MIT",
-    "description": "A minimal Symfony project recommended to create bare bones applications",
+    "description": "Recommandations de chauffage à partir des relevés de température d'un foyer et des prévisions météo",
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {

@@ -2,7 +2,7 @@
 #
 # Portes : skill ci-pipeline-standards, ordre par cout croissant.
 # Contraintes d'infrastructure : .claude/rules/stack-conventions.md, section 22.
-name: Qualite et deploiement
+name: Qualité et déploiement
 
 on:
   push:

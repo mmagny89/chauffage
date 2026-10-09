@@ -1,0 +1,35 @@
+# Surveillance des dépendances. Complète `composer audit`, porte qualité bloquante de
+# .github/workflows/qualite.yml : l'audit refuse ce qui porte un avis de sécurité connu,
+# Dependabot propose la montée de version qui le lève.
+version: 2
+updates:
+  # Le code applicatif vit dans app/ ; la racine ne porte que l'infrastructure Docker
+  # (voir .claude/rules/stack-conventions.md).
+  - package-ecosystem: composer
+    directory: /app
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependances]
+    commit-message:
+      # Conventional Commits, comme le reste de l'historique.
+      prefix: build
+      include: scope
+    groups:
+      # Les paquets symfony/* sont contraints à la même version mineure : les monter un par
+      # un produit N demandes qui échouent séparément et passent ensemble.
+      symfony:
+        patterns: ['symfony/*']
+      doctrine:
+        patterns: ['doctrine/*']
+      qualite:
+        dependency-type: development
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    labels: [dependances]
+    commit-message:
+      prefix: ci
