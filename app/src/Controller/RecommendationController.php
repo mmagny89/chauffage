@@ -10,12 +10,15 @@ use App\Forecast\ForecastUnavailableException;
 use App\Forecast\HouseholdNotLocatedException;
 use App\Recommendation\RecommendationEngine;
 use App\Recommendation\RecommendationService;
+use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
 use App\Service\Calibration;
 use App\Service\HouseholdProvider;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
@@ -29,7 +32,9 @@ final class RecommendationController extends AbstractController
 
     #[Route('/recommandations', name: 'app_recommendations', methods: ['GET'])]
     public function index(
+        Request $request,
         HouseholdProvider $households,
+        PlaceRepository $placeRepository,
         RecommendationService $recommendations,
         RecommendationEngine $engine,
         ReadingRepository $readings,
@@ -40,15 +45,21 @@ final class RecommendationController extends AbstractController
         $analysis = $recommendations->analyze($household);
         $timezone = new \DateTimeZone($household->getTimezone());
 
-        $days = [];
+        $places = $placeRepository->findByHousehold($household);
+        $selected = $this->selectedPlace($request, $places);
+
+        $set = null;
         $error = null;
         try {
-            $days = $recommendations->forHousehold($household, $analysis);
+            $set = $recommendations->forHouseholdAndPlaces($household, $places, $analysis);
         } catch (HouseholdNotLocatedException) {
             // Signalé par le gabarit : invitation à renseigner la ville.
         } catch (ForecastUnavailableException) {
             $error = 'Les prévisions sont momentanément indisponibles. Réessayez dans quelques minutes.';
         }
+
+        $householdDays = $set->household ?? [];
+        $days = null !== $selected ? ($set->places[(int) $selected->getId()] ?? []) : $householdDays;
 
         $dayFormatter = new \IntlDateFormatter('fr_FR', \IntlDateFormatter::NONE, \IntlDateFormatter::NONE, $timezone, null, 'EEE d MMM');
         $now = new \DateTimeImmutable($clock->now()->setTimezone($timezone)->format('Y-m-d H:i:s'));
@@ -61,10 +72,25 @@ final class RecommendationController extends AbstractController
                 'distant' => $index >= self::RELIABLE_DAYS,
             ];
         }
+        $label = static fn ($slot): string => $slot->recommendation->slot->label().' · '.$dayFormatter->format($slot->date);
         $upcoming = array_map(
-            static fn ($slot): array => ['label' => $slot->recommendation->slot->label().' · '.$dayFormatter->format($slot->date), 'item' => $slot->recommendation],
+            static fn ($slot): array => ['label' => $label($slot), 'item' => $slot->recommendation],
             $engine->upcoming($days, $now, self::UPCOMING),
         );
+
+        // Pièce par pièce, pour les mêmes créneaux que le foyer entier : seulement s'il y en a plusieurs.
+        $placeRows = [];
+        $columns = [];
+        if (null === $selected && \count($places) >= 2 && null !== $set) {
+            $columns = array_map(static fn ($slot): string => $label($slot), $engine->upcoming($householdDays, $now, self::UPCOMING));
+            foreach ($places as $place) {
+                $placeRows[] = [
+                    'place' => $place,
+                    'hasReadings' => $analysis->hasReadingsFor($place->getName()),
+                    'cells' => array_map(static fn ($slot) => $slot->recommendation, $engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING)),
+                ];
+            }
+        }
 
         return $this->render('recommendation/index.html.twig', [
             'household' => $household,
@@ -74,8 +100,35 @@ final class RecommendationController extends AbstractController
             'daysRequired' => Calibration::DAYS_REQUIRED,
             'rows' => $rows,
             'upcoming' => $upcoming,
+            'places' => $places,
+            'selected' => $selected,
+            'selectedHasReadings' => null !== $selected && $analysis->hasReadingsFor($selected->getName()),
+            'placeRows' => $placeRows,
+            'placeColumns' => $columns,
             'slots' => DaySlot::chronological(),
             'error' => $error,
         ]);
+    }
+
+    /**
+     * La pièce demandée par ?piece=<id>, parmi celles du foyer : un identifiant inconnu, ou celui d'un
+     * autre foyer, est une 404 (une pièce d'autrui n'est pas distinguée d'une pièce qui n'existe pas).
+     *
+     * @param list<\App\Entity\Place> $places
+     */
+    private function selectedPlace(Request $request, array $places): ?\App\Entity\Place
+    {
+        $id = $request->query->get('piece');
+        if (null === $id || '' === $id) {
+            return null;
+        }
+
+        foreach ($places as $place) {
+            if ((string) $place->getId() === (string) $id) {
+                return $place;
+            }
+        }
+
+        throw new NotFoundHttpException('Pièce introuvable.');
     }
 }

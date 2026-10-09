@@ -71,6 +71,26 @@ final class QueryBudgetTest extends WebTestCase
         self::assertLessThanOrEqual($budget, $collector->getQueryCount(), \sprintf('%s : %d requêtes (budget %d).', $path, $collector->getQueryCount(), $budget));
     }
 
+    public function testRoomViewStaysWithinBudgetToo(): void
+    {
+        $client = static::createClient();
+        $user = $this->bigHousehold();
+        $placeId = self::getContainer()->get(EntityManagerInterface::class)->getRepository(Place::class)->findOneBy(['name' => 'Lieu 3'])?->getId();
+        $client->getKernel()->shutdown();
+        $client->getKernel()->boot();
+        $client->loginUser($user);
+        $client->enableProfiler();
+
+        $client->request('GET', '/recommandations', ['piece' => (string) $placeId]);
+
+        self::assertResponseIsSuccessful();
+        $profile = $client->getProfile();
+        self::assertInstanceOf(Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+        self::assertLessThanOrEqual(8, $collector->getQueryCount(), \sprintf('Vue d’une pièce : %d requêtes.', $collector->getQueryCount()));
+    }
+
     private function bigHousehold(): User
     {
         $em = self::getContainer()->get(EntityManagerInterface::class);

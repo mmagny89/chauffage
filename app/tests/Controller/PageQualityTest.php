@@ -66,6 +66,25 @@ final class PageQualityTest extends WebTestCase
         $crawler = $this->client->request('GET', $path);
 
         self::assertResponseIsSuccessful();
+        $this->assertPageQuality($crawler);
+    }
+
+    public function testRoomViewIsAccessibleAndCspFriendly(): void
+    {
+        $user = $this->richHousehold();
+        $this->client->loginUser($user);
+        $place = self::getContainer()->get(EntityManagerInterface::class)->getRepository(Place::class)->findOneBy(['name' => 'Cave']);
+        self::assertNotNull($place);
+
+        $crawler = $this->client->request('GET', '/recommandations', ['piece' => (string) $place->getId()]);
+
+        self::assertResponseIsSuccessful();
+        $this->assertPageQuality($crawler);
+        self::assertSelectorExists('nav[aria-label="Vue des recommandations"] a[aria-current=page]');
+    }
+
+    private function assertPageQuality(Crawler $crawler): void
+    {
         $this->assertDocument($crawler);
         $this->assertHeadings($crawler);
         $this->assertFormControlsAreLabelled($crawler);

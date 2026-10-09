@@ -138,6 +138,26 @@ final class DeltaModelFitterTest extends TestCase
         self::assertSame(DeltaModelFitter::SLOPE_MIN, $falling->slope);
     }
 
+    public function testFitPlacesGivesEachPlaceItsOwnModelIgnoringCase(): void
+    {
+        $salon = new Place($this->household, 'Salon');
+        $cave = new Place($this->household, 'Cave');
+        $readings = [
+            new Reading($salon, new \DateTimeImmutable('2026-10-08 08:00'), 5.0, 15.0),   // écart +10
+            new Reading($cave, new \DateTimeImmutable('2026-10-08 08:00'), 5.0, 8.0),     // écart +3
+            new Reading($salon, new \DateTimeImmutable('2026-10-09 08:00'), 6.0, 16.0),   // écart +10
+        ];
+
+        $models = $this->fitter->fitPlaces($readings);
+
+        self::assertSame(['salon', 'cave'], array_keys($models));
+        self::assertEqualsWithDelta(10.0, $models['salon']->overall?->deltaAt(5.5) ?? 0.0, 0.3);
+        self::assertSame(2, $models['salon']->overall?->readings);
+        self::assertEqualsWithDelta(3.0, $models['cave']->overall?->deltaAt(5.0) ?? 0.0, 1e-9);
+        self::assertSame(1, $models['cave']->overall?->readings);
+        self::assertSame([], $this->fitter->fitPlaces([]));
+    }
+
     public function testSessionsAreDistinctInstantsNotReadings(): void
     {
         // Trois instants, deux lieux chacun : six relevés mais trois instants.

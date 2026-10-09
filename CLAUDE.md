@@ -93,6 +93,13 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   (une précision au dixième serait fausse). Prévision hors de la plage relevée (marge 3 °C) →
   « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »
   sous 5 jours de relevés (`Calibration::DAYS_REQUIRED`).
+- **Recommandation par pièce** (`?piece=<id>`, onglets « Tout le foyer » + une pièce chacune, et un
+  tableau « Pièce par pièce » pour les quatre prochains créneaux, seulement s'il y a ≥ 2 pièces) :
+  mêmes règles, mais avec le modèle d'écart **de la pièce** (`DeltaModelFitter::fitPlaces`, relevés de
+  cette pièce seulement) ; mêmes températures visées que le foyer (pas de cible par pièce). Une pièce
+  sans relevé reçoit l'estimation du foyer, signalée. Un identifiant de pièce inconnu ou d'un autre
+  foyer est une 404 ; la vue d'ensemble reste la moyenne de tous les relevés, qui peut masquer une
+  pièce plus froide que les autres.
 - **Prévisions** : 16 jours demandés à Open-Meteo, 15 affichés (pour que la 15ᵉ nuit soit
   complète) ; cache 1 h par position arrondie à 0,01°.
 
