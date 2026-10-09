@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\Household;
 use App\Entity\User;
 use App\Form\RegistrationFormType;
 use App\Repository\UserRepository;
@@ -52,6 +53,7 @@ final class RegistrationController extends AbstractController
             $user->setPassword($passwordHasher->hashPassword($user, $plainPassword));
 
             $entityManager->persist($user);
+            $entityManager->persist(new Household($user));
             $entityManager->flush();
 
             $this->emailVerifier->sendConfirmation($user);

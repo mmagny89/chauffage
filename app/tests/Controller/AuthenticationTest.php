@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Controller;
 
 use App\Entity\User;
+use App\Repository\HouseholdRepository;
 use App\Repository\UserRepository;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -30,6 +31,15 @@ final class AuthenticationTest extends WebTestCase
         self::assertResponseRedirects('/login');
     }
 
+    public function testCsrfFieldsAreWiredToTheStimulusController(): void
+    {
+        // Jetons stateless : sans ce contrôleur, le navigateur envoie le marqueur brut et le serveur répond « Jeton CSRF invalide ».
+        foreach (['/login' => 'input[name=_csrf_token][data-controller=csrf-protection]', '/register' => 'input[name="registration_form[_token]"][data-controller=csrf-protection]'] as $path => $selector) {
+            $this->client->request('GET', $path);
+            self::assertSelectorExists($selector, $path);
+        }
+    }
+
     public function testRegistrationVerificationAndLogin(): void
     {
         $this->register(self::EMAIL, self::PASSWORD);
@@ -39,6 +49,10 @@ final class AuthenticationTest extends WebTestCase
 
         $user = $this->findUser(self::EMAIL);
         self::assertFalse($user->isVerified());
+
+        $household = self::getContainer()->get(HouseholdRepository::class)->findOneBy(['user' => $user]);
+        self::assertNotNull($household, 'Un compte reçoit son foyer dès l’inscription.');
+        self::assertCount(4, $household->getTargets());
         self::assertNotSame(self::PASSWORD, $user->getPassword());
 
         // Mot de passe juste, adresse non confirmée : refusé.
