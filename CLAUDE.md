@@ -109,6 +109,9 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 
 ## Pièges connus
 
+Les pièges du rendu Twig/Stimulus/Turbo sont aussi réunis, avec leurs raisons, en §24 de
+[`.claude/rules/stack-conventions.md`](.claude/rules/stack-conventions.md).
+
 - **Rechargement à chaud** : `compose.dev.yml` restreint `watch` à `src`, `config`, `templates`,
   `translations`. Le motif par défaut couvre `var/cache` et redémarrait les threads PHP à chaque
   écriture de cache (dont celles de `phpunit`) : pages qui tournent en boucle.
