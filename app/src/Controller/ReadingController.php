@@ -13,6 +13,7 @@ use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
 use App\Security\Voter\ReadingVoter;
 use App\Service\Calibration;
+use App\Service\DateLabels;
 use App\Service\HouseholdProvider;
 use App\Service\ReadingRecorder;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,7 +36,7 @@ final class ReadingController extends AbstractController
     }
 
     #[Route('', name: 'app_readings', methods: ['GET', 'POST'])]
-    public function index(Request $request, ReadingRecorder $recorder, ClockInterface $clock, #[CurrentUser] User $user): Response
+    public function index(Request $request, ReadingRecorder $recorder, ClockInterface $clock, DateLabels $labels, #[CurrentUser] User $user): Response
     {
         $household = $this->households->forUser($user);
         $places = $this->places->findByHousehold($household);
@@ -65,11 +66,10 @@ final class ReadingController extends AbstractController
             $status = $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK;
         }
 
-        $dayFormatter = new \IntlDateFormatter('fr_FR', \IntlDateFormatter::FULL, \IntlDateFormatter::NONE, $household->getTimezone());
         $days = [];
         foreach ($this->readings->findByHousehold($household) as $reading) {
             $key = $reading->getMeasuredAt()->format('Y-m-d');
-            $days[$key] ??= ['label' => ucfirst((string) $dayFormatter->format($reading->getMeasuredAt())), 'readings' => []];
+            $days[$key] ??= ['label' => ucfirst($labels->fullDay($reading->getMeasuredAt(), $household->getTimezone())), 'readings' => []];
             $days[$key]['readings'][] = $reading;
         }
 

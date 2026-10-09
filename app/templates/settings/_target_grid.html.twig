@@ -1,0 +1,22 @@
+{# Grille de températures visées : un groupe par ligne (jour ou pièce), un champ par moment de la journée.
+   Même balisage du téléphone au grand écran (pas de tableau dupliqué, donc pas de champ en double) :
+   sur petit écran chaque champ porte son étiquette ; à partir de md, les étiquettes passent en en-tête de colonne. #}
+<div class="mb-5 rounded-lg border border-slate-200 bg-white px-4 pt-3">
+    <div class="hidden gap-3 pb-2 text-sm font-semibold text-slate-700 md:grid md:grid-cols-[10rem_repeat(4,minmax(0,1fr))]" aria-hidden="true">
+        <span>{{ corner }}</span>
+        {% for slot in slots %}<span>{{ slot.label }}</span>{% endfor %}
+    </div>
+    {% for row in rows %}
+        <div role="group" aria-labelledby="{{ row.id }}" class="grid grid-cols-2 gap-3 border-t border-slate-100 py-3 md:grid-cols-[10rem_repeat(4,minmax(0,1fr))] md:items-start">
+            <p id="{{ row.id }}" class="col-span-2 font-medium text-slate-900 md:col-span-1 md:pt-2">{{ row.label }}</p>
+            {% for slot in slots %}
+                {% set field = row.fields[slot.value] %}
+                <div>
+                    <label for="{{ field.vars.id }}" class="mb-1 block text-xs font-medium text-slate-700 md:sr-only">{{ slot.label }}</label>
+                    {{ form_widget(field) }}
+                    {{ form_errors(field) }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endfor %}
+</div>

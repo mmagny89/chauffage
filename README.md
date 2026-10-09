@@ -20,12 +20,16 @@ semaine par jour de la semaine.
 
 ## Comment ça marche
 
-1. **Réglages** : choisir sa ville, déclarer ses lieux (salon, chambre, cave…) et fixer les
-   températures visées pour chaque moment de chaque jour de la semaine.
+1. **Réglages** (la « mise en route » : obligatoire à la première connexion, avant tout relevé) :
+   choisir sa ville, déclarer ses lieux (salon, chambre, cave…) et fixer les
+   températures visées pour chaque moment de chaque jour de la semaine, et au besoin une
+   température propre à une pièce.
 2. **Relevés** : à une même heure, noter la température extérieure et celle de **chaque**
    lieu, chauffage éteint. Quelques jours, par des températures différentes.
 3. **Recommandations** : pour chaque jour, et pour le matin, l'après-midi, la soirée et la
-   nuit, « chauffer à X °C » ou « couper », avec la température intérieure estimée.
+   nuit, « chauffer à X °C » ou « couper », avec la température intérieure estimée — pour le
+   foyer entier, et pièce par pièce (chacune a son propre écart : la chambre peut avoir besoin
+   de chauffage quand le salon, mieux isolé, n'en a pas besoin).
 
 La température intérieure estimée vaut la prévision extérieure plus l'écart du foyer. Sans
 chauffage, l'intérieur suit le dehors de façon amortie : l'écart grandit quand il fait plus
@@ -34,6 +38,9 @@ extérieure : il mesure la pente sur vos relevés, et la complète par la pente 
 logement non chauffé tant que ceux-ci sont peu nombreux ou pris à des températures proches.
 Plus vos relevés sont nombreux et variés, plus la pente est la vôtre. Le détail et les règles
 qui s'y rattachent sont dans [`CLAUDE.md`](CLAUDE.md).
+
+L'interface s'adapte du téléphone au grand écran (menu repliable, cartes par jour, grilles de saisie) et
+vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 px, contrastes vérifiés.
 
 ## État du projet
 
@@ -47,7 +54,7 @@ quotidien (nécessite un worker).
 | **Lieux et relevés** | Lieux déclarés dans les réglages ; un relevé renseigne tous les lieux ; jauge de calibrage (cinq jours). |
 | **Écarts** | Moyenne par lieu et par moment de la journée ; modèle retenu et sa formule. |
 | **Prévisions** | Quinze jours, par moment de la journée, via Open-Meteo. |
-| **Recommandations** | Chauffer ou couper, par jour et par créneau, avec les avertissements de fiabilité. |
+| **Recommandations** | Chauffer ou couper, par jour et par créneau, pour le foyer et pour chaque pièce, avec les avertissements de fiabilité. |
 
 ## Démarrer en local
 

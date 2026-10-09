@@ -66,6 +66,103 @@ final class PageQualityTest extends WebTestCase
         $crawler = $this->client->request('GET', $path);
 
         self::assertResponseIsSuccessful();
+        $this->assertPageQuality($crawler);
+    }
+
+    public function testMenuIsAccessibleAndProgressivelyEnhanced(): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', '/ecarts');
+
+        // Sans JavaScript le menu est déployé et le bouton caché ; le contrôleur Stimulus bascule ensuite.
+        $button = $crawler->filter('header button[data-menu-target=button]');
+        self::assertCount(1, $button);
+        self::assertNotNull($button->attr('hidden'), 'Sans JavaScript, pas de bouton inutile.');
+        self::assertSame('menu-principal', $button->attr('aria-controls'));
+        self::assertSame('false', $button->attr('aria-expanded'));
+        self::assertCount(1, $crawler->filter('#menu-principal[data-menu-target=panel]'));
+        self::assertCount(1, $crawler->filter('header[data-controller=menu]'));
+        self::assertNull($crawler->filter('#menu-principal')->attr('hidden'), 'Le panneau est visible tant que le JavaScript n’a pas tourné.');
+
+        $links = $crawler->filter('nav[aria-label="Navigation principale"] a')->each(static fn ($a) => $a->text());
+        self::assertSame(['Recommandations', 'Relevés', 'Écarts', 'Prévisions', 'Réglages'], $links);
+
+        $current = $crawler->filter('nav[aria-label="Navigation principale"] a[aria-current=page]');
+        self::assertCount(1, $current, 'Une seule page courante.');
+        self::assertSame('Écarts', $current->text());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function currentPages(): iterable
+    {
+        yield 'recommandations' => ['/recommandations', 'Recommandations'];
+        yield 'relevés' => ['/releves', 'Relevés'];
+        yield 'écarts' => ['/ecarts', 'Écarts'];
+        yield 'prévisions' => ['/previsions', 'Prévisions'];
+        yield 'réglages' => ['/reglages', 'Réglages'];
+    }
+
+    #[DataProvider('currentPages')]
+    public function testMenuMarksTheCurrentPage(string $path, string $label): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', $path);
+
+        self::assertSame($label, $crawler->filter('nav[aria-label="Navigation principale"] a[aria-current=page]')->text());
+    }
+
+    public function testHomeHasNoCurrentPageInTheMenuButStillHasTheNavigation(): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', '/');
+
+        self::assertCount(0, $crawler->filter('nav[aria-label="Navigation principale"] a[aria-current=page]'));
+        self::assertCount(5, $crawler->filter('nav[aria-label="Navigation principale"] a'));
+    }
+
+    public function testAnonymousVisitorsGetNoMenuButton(): void
+    {
+        $crawler = $this->client->request('GET', '/login');
+
+        self::assertCount(0, $crawler->filter('button[data-menu-target=button]'));
+        self::assertSame(['Se connecter', 'Créer un compte'], $crawler->filter('nav[aria-label="Navigation principale"] a')->each(static fn ($a) => $a->text()));
+        self::assertSame('Se connecter', $crawler->filter('nav a[aria-current=page]')->text());
+    }
+
+    public function testHeaderTouchTargetsAreLargeEnough(): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', '/ecarts');
+
+        // Cible tactile d'au moins 44 px (min-h-11), au-delà des 24 px exigés par WCAG 2.2 (2.5.8).
+        foreach ($crawler->filter('header nav a, header a[href$="/logout"], header button') as $element) {
+            \assert($element instanceof \DOMElement);
+            self::assertStringContainsString('min-h-11', $element->getAttribute('class'), trim($element->textContent));
+        }
+    }
+
+    public function testRoomViewIsAccessibleAndCspFriendly(): void
+    {
+        $user = $this->richHousehold();
+        $this->client->loginUser($user);
+        $place = self::getContainer()->get(EntityManagerInterface::class)->getRepository(Place::class)->findOneBy(['name' => 'Cave']);
+        self::assertNotNull($place);
+
+        $crawler = $this->client->request('GET', '/recommandations', ['piece' => (string) $place->getId()]);
+
+        self::assertResponseIsSuccessful();
+        $this->assertPageQuality($crawler);
+        self::assertSelectorExists('nav[aria-label="Vue des recommandations"] a[aria-current=page]');
+    }
+
+    private function assertPageQuality(Crawler $crawler): void
+    {
         $this->assertDocument($crawler);
         $this->assertHeadings($crawler);
         $this->assertFormControlsAreLabelled($crawler);
@@ -134,6 +231,16 @@ final class PageQualityTest extends WebTestCase
 
     private function assertLinksAndButtonsHaveNames(Crawler $crawler): void
     {
+        // Les boutons d'action (hors boutons pleine largeur déjà hauts) déclarent une hauteur tactile d'au moins 44 px.
+        foreach ($crawler->filter('main button[type=submit]') as $button) {
+            \assert($button instanceof \DOMElement);
+            $class = $button->getAttribute('class');
+            self::assertTrue(
+                str_contains($class, 'min-h-11') || str_contains($class, 'py-2') || str_contains($class, 'py-3'),
+                \sprintf('Bouton « %s » trop petit pour le tactile.', trim($button->textContent)),
+            );
+        }
+
         foreach ($crawler->filter('a[href], button') as $element) {
             \assert($element instanceof \DOMElement);
             $name = trim($element->textContent) ?: $element->getAttribute('aria-label') ?: $element->getAttribute('title');
@@ -182,7 +289,7 @@ final class PageQualityTest extends WebTestCase
     {
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $user = (new User())->setEmail('qualite@example.com')->setPassword('x')->setVerified(true);
-        $household = new Household($user);
+        $household = (new Household($user))->completeSetup(new \DateTimeImmutable('2026-01-01'));
         $household->locate('Lyon (Rhône, France)', 45.74906, 4.84789, 'Europe/Paris');
         $em->persist($user);
         $em->persist($household);

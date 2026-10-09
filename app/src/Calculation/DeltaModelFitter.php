@@ -44,6 +44,25 @@ final class DeltaModelFitter
     public const REGRESSION_WEIGHT = 0.5;
 
     /**
+     * Un jeu de modèles par pièce, indexé par le nom de la pièce en minuscules (unique dans un
+     * foyer). Une pièce sans relevé n'y figure pas.
+     *
+     * @param iterable<Reading> $readings
+     *
+     * @return array<string, DeltaModels>
+     */
+    public function fitPlaces(iterable $readings): array
+    {
+        /** @var array<string, list<Reading>> $byPlace */
+        $byPlace = [];
+        foreach ($readings as $reading) {
+            $byPlace[mb_strtolower($reading->getPlace()->getName())][] = $reading;
+        }
+
+        return array_map($this->fit(...), $byPlace);
+    }
+
+    /**
      * @param iterable<Reading> $readings
      */
     public function fit(iterable $readings): DeltaModels

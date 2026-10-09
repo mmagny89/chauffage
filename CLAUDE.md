@@ -67,6 +67,12 @@ Standards de code : skills `symfony-coding-standards`, `phpstan-analysis`,
 Chacune est figée par des tests ; en changer une, c'est changer ses tests et cette section.
 
 - **Un compte = un foyer** (`Household`, créé à l'inscription avec ses 28 températures visées).
+- **Mise en route obligatoire** : tant que `Household::isSetUp()` est faux, `SetupRequiredSubscriber`
+  redirige toute page autre que les réglages (et la déconnexion) vers `/reglages`, qui s'affiche alors
+  en mode « Mise en route » (trois étapes : ville, lieux, températures visées). `POST /reglages/terminer`
+  la clôt si une ville est choisie et au moins un lieu déclaré (`SetupChecklist`), puis envoie aux
+  relevés. Les foyers déjà configurés (ville + lieu) ont été marqués terminés par la migration. Un test
+  qui crée un foyer pour exercer une page normale appelle `completeSetup()`.
 - **Créneaux** (`DaySlot`, heure locale du foyer) : matin 6–12 h, après-midi 12–18 h, soirée
   18–22 h, nuit 22–6 h. **La nuit d'un jour D va de 22 h le jour D à 6 h le lendemain** : les
   heures 0–6 appartiennent à la nuit de la veille. Ordre d'affichage : matin, après-midi,
@@ -93,12 +99,20 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   (une précision au dixième serait fausse). Prévision hors de la plage relevée (marge 3 °C) →
   « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »
   sous 5 jours de relevés (`Calibration::DAYS_REQUIRED`).
+- **Recommandation par pièce** (`?piece=<id>`, onglets « Tout le foyer » + une pièce chacune, et un
+  tableau « Pièce par pièce » pour les quatre prochains créneaux, seulement s'il y a ≥ 2 pièces) :
+  mêmes règles, mais avec le modèle d'écart **de la pièce** (`DeltaModelFitter::fitPlaces`, relevés de
+  cette pièce seulement) ; températures visées du foyer, **remplacées par celles de la pièce** là où elle en a (`PlaceTarget`, par
+  créneau, facultatives, valables tous les jours de la semaine ; vide = suit le foyer). Une pièce
+  sans relevé reçoit l'estimation du foyer, signalée. Un identifiant de pièce inconnu ou d'un autre
+  foyer est une 404 ; la vue d'ensemble reste la moyenne de tous les relevés, qui peut masquer une
+  pièce plus froide que les autres.
 - **Prévisions** : 16 jours demandés à Open-Meteo, 15 affichés (pour que la 15ᵉ nuit soit
   complète) ; cache 1 h par position arrondie à 0,01°.
 
 ## Architecture
 
-- `src/Entity` — `User`, `Household`, `HeatingTarget`, `Place`, `Reading`. Le foyer complète
+- `src/Entity` — `User`, `Household`, `HeatingTarget`, `Place`, `PlaceTarget`, `Reading`. Le foyer complète
   lui-même ses cibles manquantes (`Household::completeTargets`, via `HouseholdProvider`).
 - `src/Calculation`, `src/Forecast`, `src/Recommendation` — calcul pur ; `Geocoding` et
   `Forecast\OpenMeteo*` — clients HTTP derrière une interface (doubles dans `tests/Support`).
@@ -106,6 +120,25 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   `PasswordPolicy` (**source unique** des exigences de mot de passe).
 - Emails **synchrones** : aucun worker en v1. La recette Messenger les routait vers un
   transport asynchrone sans consommateur, donc ils ne partaient jamais.
+
+## Interface
+
+- **Mobile d'abord, trois niveaux** : téléphone (< 768 px), tablette (768–1023 px), bureau (≥ 1024 px). Le menu
+  (`partials/_header.html.twig` + contrôleur Stimulus `menu`) est replié derrière un bouton **sous 1024 px** ;
+  sans JavaScript il reste déployé (le bouton est `hidden` tant que le JS n'a pas tourné). Page courante :
+  `aria-current="page"`. Pendant la mise en route le menu ne propose que les réglages.
+- **Un tableau large est doublé de cartes pour téléphone** : `hidden md:block` sur le tableau, `md:hidden` sur des
+  `<article>` (un par jour, `<dl>`). Même contenu, un seul affiché (l'autre est en `display: none`, donc absent des
+  lecteurs d'écran). Les tableaux plus petits défilent (`relative overflow-x-auto`, première colonne `sticky`).
+- **`relative` obligatoire sur un conteneur `overflow-x-auto`** : un `sr-only` (position absolue) dans une cellule
+  échappe sinon au conteneur et fait déborder toute la page horizontalement.
+- **Une grille de champs, pas un tableau, pour les saisies** (`settings/_target_grid.html.twig`) : un groupe
+  `role="group"` par ligne, étiquettes visibles sur téléphone et en en-têtes de colonne à partir de `md`. Un
+  tableau dupliqué enverrait chaque champ deux fois.
+- Cibles tactiles ≥ 44 px (`min-h-11`), focus visible global (`app.css`), pas d'animation hors préférence.
+- **Vérifier le responsive dans le vrai navigateur** : l'extension Chrome ne redimensionne pas sa fenêtre. On rend
+  la page dans une iframe `srcdoc` de la largeur voulue (les media queries s'appliquent à l'iframe) et on mesure
+  `documentElement.scrollWidth`. Un test PHP ne voit pas un débordement.
 
 ## Pièges connus
 

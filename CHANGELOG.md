@@ -17,6 +17,12 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
 - **Comptes** : inscription avec confirmation de l'adresse par un lien signé, connexion
   refusée tant que l'adresse n'est pas confirmée, mot de passe oublié. Un compte
   correspond à un foyer.
+- **Mise en route** : à l'inscription, on règle d'abord (ville, lieux, températures visées) avant de pouvoir
+  saisir un relevé ; toutes les autres pages y renvoient tant que ce n'est pas terminé.
+- **Navigation** : menu repliable sur téléphone et tablette, page courante signalée, cibles tactiles de 44 px,
+  pied de page ; l'accueil devient un tableau de bord (avancement du calibrage, prochains créneaux, accès rapides).
+- **Responsive** : cartes par jour pour les recommandations et les prévisions sur téléphone, grilles de saisie
+  des températures adaptées à la largeur, première colonne fixe dans les tableaux qui défilent.
 - **Lieux** : déclarés dans les réglages (pièces usuelles ou nom libre), renommables et
   supprimables ; supprimer un lieu supprime ses relevés.
 - **Relevés** : à une date et une heure, la température extérieure et la température
@@ -30,8 +36,13 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
   variés ; la page des écarts montre la formule et le poids des relevés.
 - **Réglages** : ville du foyer (recherche Open-Meteo) et températures visées par jour
   de la semaine et par moment de la journée.
+- **Températures visées par pièce** : facultatives, par moment de la journée, dans les réglages ; elles
+  remplacent celles du foyer pour cette pièce (une chambre à 17 °C la nuit). Vide : la pièce suit le foyer.
 - **Prévisions** : température extérieure prévue sur quinze jours, par moment de la
   journée (Open-Meteo, CC BY 4.0).
+- **Recommandations par pièce** : en plus de la vue du foyer, un onglet par pièce déclarée et un
+  tableau « pièce par pièce » pour les prochains créneaux. Chaque pièce a son propre écart, mesuré
+  sur ses relevés ; une pièce sans relevé reprend l'estimation du foyer, signalée.
 - **Recommandations** : pour chaque jour et chaque créneau, « chauffer à X °C » ou
   « couper », avec la température extérieure prévue et l'intérieure estimée ; les quatre
   prochains créneaux en tête de page ; avertissement pour les prévisions au-delà de sept

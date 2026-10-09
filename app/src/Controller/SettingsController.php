@@ -5,16 +5,19 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Dto\CityChoiceInput;
+use App\Dto\PlaceTargetsInput;
 use App\Dto\TargetsInput;
 use App\Entity\User;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
+use App\Form\PlaceTargetsType;
 use App\Form\WeekTargetsType;
 use App\Geocoding\GeocoderInterface;
 use App\Geocoding\GeocodingUnavailableException;
 use App\Repository\PlaceRepository;
 use App\Service\HouseholdProvider;
 use App\Service\RoomCatalog;
+use App\Service\SetupChecklist;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,6 +36,7 @@ final class SettingsController extends AbstractController
         private readonly RateLimiterFactoryInterface $geocodingLimiter,
         private readonly PlaceRepository $placeRepository,
         private readonly RoomCatalog $rooms,
+        private readonly SetupChecklist $checklist,
     ) {
     }
 
@@ -65,6 +69,31 @@ final class SettingsController extends AbstractController
             return $this->redirectToRoute('app_settings');
         }
 
+        $places = $this->placeRepository->findByHousehold($household);
+        /** @var array<string, PlaceTargetsInput> $placeData */
+        $placeData = [];
+        foreach ($places as $place) {
+            $input = new PlaceTargetsInput();
+            foreach (DaySlot::cases() as $slot) {
+                $input->{$slot->value} = $place->targetFor($slot);
+            }
+            $placeData[PlaceTargetsType::fieldName($place)] = $input;
+        }
+        $placeForm = $this->createForm(PlaceTargetsType::class, $placeData, ['places' => $places]);
+        $placeForm->handleRequest($request);
+
+        if ($placeForm->isSubmitted() && $placeForm->isValid()) {
+            foreach ($places as $place) {
+                foreach (DaySlot::cases() as $slot) {
+                    $place->setTarget($slot, $placeData[PlaceTargetsType::fieldName($place)]->for($slot));
+                }
+            }
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Températures visées par pièce enregistrées.');
+
+            return $this->redirectToRoute('app_settings', ['_fragment' => 'cibles-pieces']);
+        }
+
         $query = trim((string) $request->query->get('q', ''));
         $results = [];
         $searchError = null;
@@ -80,19 +109,19 @@ final class SettingsController extends AbstractController
             }
         }
 
-        $places = $this->placeRepository->findByHousehold($household);
-
         return $this->render('settings/index.html.twig', [
             'household' => $household,
+            'setup' => $household->isSetUp() ? null : $this->checklist->progress($household),
             'places' => $places,
             'placeChoices' => $this->rooms->availableChoices(array_map(static fn ($p): string => $p->getName(), $places)),
             'form' => $form,
+            'placeForm' => $placeForm,
             'slots' => DaySlot::chronological(),
             'weekdays' => Weekday::cases(),
             'query' => $query,
             'results' => $results,
             'searchError' => $searchError,
-        ], new Response(status: $form->isSubmitted() && !$form->isValid() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+        ], new Response(status: ($form->isSubmitted() && !$form->isValid()) || ($placeForm->isSubmitted() && !$placeForm->isValid()) ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
     }
 
     #[Route('/ville', name: 'app_settings_city', methods: ['POST'])]

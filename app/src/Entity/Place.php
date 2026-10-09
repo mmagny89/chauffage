@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Enum\DaySlot;
 use App\Repository\PlaceRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
@@ -36,11 +39,18 @@ class Place
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
+    /**
+     * @var Collection<int, PlaceTarget>
+     */
+    #[ORM\OneToMany(targetEntity: PlaceTarget::class, mappedBy: 'place', cascade: ['persist'], orphanRemoval: true)]
+    private Collection $targets;
+
     public function __construct(Household $household, string $name)
     {
         $this->household = $household;
         $this->setName($name);
         $this->createdAt = new \DateTimeImmutable();
+        $this->targets = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -63,5 +73,49 @@ class Place
         $this->name = trim($name);
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, PlaceTarget>
+     */
+    public function getTargets(): Collection
+    {
+        return $this->targets;
+    }
+
+    /**
+     * La température visée propre à cette pièce pour ce créneau, ou null si elle suit le foyer.
+     */
+    public function targetFor(DaySlot $slot): ?float
+    {
+        foreach ($this->targets as $target) {
+            if ($target->getSlot() === $slot) {
+                return $target->getTemperature();
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fixe la température visée de la pièce pour un créneau ; null la retire (la pièce suit alors le foyer).
+     */
+    public function setTarget(DaySlot $slot, ?float $temperature): void
+    {
+        foreach ($this->targets as $target) {
+            if ($target->getSlot() === $slot) {
+                if (null === $temperature) {
+                    $this->targets->removeElement($target);
+                } else {
+                    $target->setTemperature($temperature);
+                }
+
+                return;
+            }
+        }
+
+        if (null !== $temperature) {
+            $this->targets->add(new PlaceTarget($this, $slot, $temperature));
+        }
     }
 }

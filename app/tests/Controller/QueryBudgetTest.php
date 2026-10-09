@@ -41,7 +41,7 @@ final class QueryBudgetTest extends WebTestCase
      */
     public static function budgets(): iterable
     {
-        yield 'accueil' => ['/', 3];
+        yield 'accueil' => ['/', 6];
         yield 'relevés' => ['/releves', 8];
         yield 'écarts' => ['/ecarts', 7];
         yield 'réglages' => ['/reglages', 6];
@@ -71,11 +71,31 @@ final class QueryBudgetTest extends WebTestCase
         self::assertLessThanOrEqual($budget, $collector->getQueryCount(), \sprintf('%s : %d requêtes (budget %d).', $path, $collector->getQueryCount(), $budget));
     }
 
+    public function testRoomViewStaysWithinBudgetToo(): void
+    {
+        $client = static::createClient();
+        $user = $this->bigHousehold();
+        $placeId = self::getContainer()->get(EntityManagerInterface::class)->getRepository(Place::class)->findOneBy(['name' => 'Lieu 3'])?->getId();
+        $client->getKernel()->shutdown();
+        $client->getKernel()->boot();
+        $client->loginUser($user);
+        $client->enableProfiler();
+
+        $client->request('GET', '/recommandations', ['piece' => (string) $placeId]);
+
+        self::assertResponseIsSuccessful();
+        $profile = $client->getProfile();
+        self::assertInstanceOf(Profile::class, $profile);
+        $collector = $profile->getCollector('db');
+        self::assertInstanceOf(DoctrineDataCollector::class, $collector);
+        self::assertLessThanOrEqual(8, $collector->getQueryCount(), \sprintf('Vue d’une pièce : %d requêtes.', $collector->getQueryCount()));
+    }
+
     private function bigHousehold(): User
     {
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $user = (new User())->setEmail('volume@example.com')->setPassword('x')->setVerified(true);
-        $household = new Household($user);
+        $household = (new Household($user))->completeSetup(new \DateTimeImmutable('2026-01-01'));
         $household->locate('Lyon (Rhône, France)', 45.74906, 4.84789, 'Europe/Paris');
         $em->persist($user);
         $em->persist($household);

@@ -40,8 +40,15 @@ class PlaceRepository extends ServiceEntityRepository
      */
     public function findByHousehold(Household $household): array
     {
+        // Les températures visées de chaque pièce sont chargées avec elle : sans cela, une requête par pièce.
         /** @var list<Place> $places */
-        $places = $this->findBy(['household' => $household]);
+        $places = $this->createQueryBuilder('p')
+            ->addSelect('t')
+            ->leftJoin('p.targets', 't')
+            ->andWhere('p.household = :household')
+            ->setParameter('household', $household)
+            ->getQuery()
+            ->getResult();
         $collator = new \Collator('fr_FR');
         usort($places, static fn (Place $a, Place $b): int => (int) $collator->compare($a->getName(), $b->getName()));
 
