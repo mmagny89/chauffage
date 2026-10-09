@@ -19,6 +19,7 @@
                 <nav aria-label="Compte">
                     {% if is_granted('ROLE_USER') %}
                         <a href="{{ path('app_readings') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Relevés</a>
+                        <a href="{{ path('app_deltas') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Écarts</a>
                         <span class="mr-3 hidden text-sm text-slate-600 sm:inline">{{ app.user.userIdentifier }}</span>
                         <a href="{{ logout_path() }}" class="text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Se déconnecter</a>
                     {% else %}
