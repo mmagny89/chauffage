@@ -47,6 +47,7 @@ final class PageQualityTest extends WebTestCase
         yield 'inscription' => ['/register', false];
         yield 'mot de passe oublié' => ['/reset-password', false];
         yield 'email envoyé' => ['/reset-password/check-email', false];
+        yield 'présentation' => ['/', false];
         yield 'accueil' => ['/', true];
         yield 'relevés' => ['/releves', true];
         yield 'écarts' => ['/ecarts', true];
