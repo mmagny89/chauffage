@@ -67,6 +67,12 @@ Standards de code : skills `symfony-coding-standards`, `phpstan-analysis`,
 Chacune est figée par des tests ; en changer une, c'est changer ses tests et cette section.
 
 - **Un compte = un foyer** (`Household`, créé à l'inscription avec ses 28 températures visées).
+- **Mise en route obligatoire** : tant que `Household::isSetUp()` est faux, `SetupRequiredSubscriber`
+  redirige toute page autre que les réglages (et la déconnexion) vers `/reglages`, qui s'affiche alors
+  en mode « Mise en route » (trois étapes : ville, lieux, températures visées). `POST /reglages/terminer`
+  la clôt si une ville est choisie et au moins un lieu déclaré (`SetupChecklist`), puis envoie aux
+  relevés. Les foyers déjà configurés (ville + lieu) ont été marqués terminés par la migration. Un test
+  qui crée un foyer pour exercer une page normale appelle `completeSetup()`.
 - **Créneaux** (`DaySlot`, heure locale du foyer) : matin 6–12 h, après-midi 12–18 h, soirée
   18–22 h, nuit 22–6 h. **La nuit d'un jour D va de 22 h le jour D à 6 h le lendemain** : les
   heures 0–6 appartiennent à la nuit de la veille. Ordre d'affichage : matin, après-midi,

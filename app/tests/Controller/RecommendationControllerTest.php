@@ -427,7 +427,7 @@ final class RecommendationControllerTest extends WebTestCase
     private function createUser(string $email, bool $located = false, float $latitude = 45.75): User
     {
         $user = (new User())->setEmail($email)->setPassword('x')->setVerified(true);
-        $household = new Household($user);
+        $household = (new Household($user))->completeSetup(new \DateTimeImmutable('2026-01-01'));
         if ($located) {
             $household->locate('Lyon (Rhône, France)', $latitude, 4.85, 'Europe/Paris');
         }

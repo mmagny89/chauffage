@@ -70,7 +70,11 @@ final class AuthenticationTest extends WebTestCase
         $this->login(self::EMAIL, self::PASSWORD);
         self::assertResponseRedirects('/');
         $this->client->followRedirect();
-        self::assertSelectorTextContains('h1', 'Bienvenue');
+        // Premier accès : on règle d'abord (ville, lieux, températures visées), on relève ensuite.
+        self::assertResponseRedirects('/reglages');
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('h1', 'Mise en route');
+        self::assertSelectorTextContains('[role=status]', 'Avant de saisir des relevés, terminez la mise en route');
     }
 
     public function testWrongPasswordGivesGenericError(): void

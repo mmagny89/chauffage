@@ -201,7 +201,7 @@ final class PageQualityTest extends WebTestCase
     {
         $em = self::getContainer()->get(EntityManagerInterface::class);
         $user = (new User())->setEmail('qualite@example.com')->setPassword('x')->setVerified(true);
-        $household = new Household($user);
+        $household = (new Household($user))->completeSetup(new \DateTimeImmutable('2026-01-01'));
         $household->locate('Lyon (Rhône, France)', 45.74906, 4.84789, 'Europe/Paris');
         $em->persist($user);
         $em->persist($household);

@@ -97,7 +97,7 @@ final class ForecastControllerTest extends WebTestCase
     private function createUser(string $email, ?string $city = null, float $latitude = 45.75): User
     {
         $user = (new User())->setEmail($email)->setPassword('x')->setVerified(true);
-        $household = new Household($user);
+        $household = (new Household($user))->completeSetup(new \DateTimeImmutable('2026-01-01'));
         if (null !== $city) {
             $household->locate($city, $latitude, 4.85, 'Europe/Paris');
         }

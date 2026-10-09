@@ -20,7 +20,8 @@ semaine par jour de la semaine.
 
 ## Comment ça marche
 
-1. **Réglages** : choisir sa ville, déclarer ses lieux (salon, chambre, cave…) et fixer les
+1. **Réglages** (la « mise en route » : obligatoire à la première connexion, avant tout relevé) :
+   choisir sa ville, déclarer ses lieux (salon, chambre, cave…) et fixer les
    températures visées pour chaque moment de chaque jour de la semaine, et au besoin une
    température propre à une pièce.
 2. **Relevés** : à une même heure, noter la température extérieure et celle de **chaque**
