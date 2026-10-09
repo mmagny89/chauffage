@@ -29,9 +29,11 @@ semaine par jour de la semaine.
 
 La température intérieure estimée vaut la prévision extérieure plus l'écart du foyer. Sans
 chauffage, l'intérieur suit le dehors de façon amortie : l'écart grandit quand il fait plus
-froid. L'outil ajuste donc l'écart sur la température extérieure (régression) quand les
-relevés sont assez nombreux et variés, et se rabat sinon sur l'écart moyen. Le détail et les
-règles qui s'y rattachent sont dans [`CLAUDE.md`](CLAUDE.md).
+froid et se réduit quand il fait doux. L'outil ajuste donc l'écart sur la température
+extérieure : il mesure la pente sur vos relevés, et la complète par la pente typique d'un
+logement non chauffé tant que ceux-ci sont peu nombreux ou pris à des températures proches.
+Plus vos relevés sont nombreux et variés, plus la pente est la vôtre. Le détail et les règles
+qui s'y rattachent sont dans [`CLAUDE.md`](CLAUDE.md).
 
 ## État du projet
 

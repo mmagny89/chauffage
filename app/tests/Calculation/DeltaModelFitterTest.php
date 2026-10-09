@@ -6,6 +6,7 @@ namespace App\Tests\Calculation;
 
 use App\Calculation\DeltaModel;
 use App\Calculation\DeltaModelFitter;
+use App\Calculation\DeltaModels;
 use App\Calculation\ModelKind;
 use App\Entity\Household;
 use App\Entity\Place;
@@ -34,21 +35,83 @@ final class DeltaModelFitterTest extends TestCase
         self::assertNull($models->forSlot(DaySlot::Morning));
     }
 
-    public function testRecoversAnExactLine(): void
+    public function testSingleReadingKeepsItsPointAndUsesTheTypicalSlope(): void
     {
-        // Intérieur = 8 + 0,6 × extérieur, donc écart = 8 − 0,4 × extérieur.
+        // 8 °C dehors, 17,3 °C dedans : écart +9,3.
+        $model = $this->morning($this->fitter->fit($this->morningReadings([8.0], static fn (): float => 17.3)));
+
+        self::assertSame(ModelKind::Typical, $model->kind);
+        self::assertSame(DeltaModelFitter::TYPICAL_SLOPE, $model->slope);
+        self::assertSame(0.0, $model->dataWeight);
+        self::assertEqualsWithDelta(9.3, $model->deltaAt(8.0), 1e-9, 'La droite passe par la mesure.');
+        self::assertSame(1, $model->readings);
+        self::assertSame(1, $model->sessions);
+    }
+
+    public function testAMildForecastNoLongerInheritsAColdWeatherGap(): void
+    {
+        // Le cas signalé : un seul relevé à 8 °C (écart +9,3), prévision de 21 °C.
+        // Un écart constant donnait 30,3 °C dans le salon ; l'écart doit se réduire quand il fait doux.
+        $model = $this->morning($this->fitter->fit($this->morningReadings([8.0], static fn (): float => 17.3)));
+
+        $indoor = 21.0 + $model->deltaAt(21.0);
+
+        self::assertEqualsWithDelta(25.1, $indoor, 1e-9, '9,3 − 0,4 × 13 = 4,1 d’écart.');
+        self::assertLessThan(30.3, $indoor);
+        self::assertGreaterThan(21.0, $indoor, 'Un peu plus chaud que le dehors, pas 9 degrés de plus.');
+        self::assertFalse($model->covers(21.0), 'Et la prévision est signalée hors plage mesurée.');
+    }
+
+    public function testSlopeIsThePenalisedLeastSquaresFormula(): void
+    {
+        // Intérieur = 8 + 0,8 × extérieur : écart = 8 − 0,2 × extérieur.
+        $outdoors = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0];
+        $model = $this->morning($this->fitter->fit($this->morningReadings($outdoors, static fn (float $t): float => 8.0 + 0.8 * $t)));
+
+        $sxx = 168.0; // Σ(x − 7)²
+        $sxy = -0.2 * $sxx;
+        $lambda = DeltaModelFitter::PRIOR_STRENGTH;
+        $expected = ($sxy + $lambda * DeltaModelFitter::TYPICAL_SLOPE) / ($sxx + $lambda);
+
+        self::assertEqualsWithDelta($expected, $model->slope, 1e-9);
+        self::assertEqualsWithDelta($sxx / ($sxx + $lambda), $model->dataWeight, 1e-9);
+        self::assertSame(ModelKind::Regression, $model->kind);
+        self::assertEqualsWithDelta(-0.2, $model->slope, 0.05, 'Des relevés nombreux et variés l’emportent sur la pente typique.');
+    }
+
+    public function testRecoversTheLineWhenTheDataSlopeEqualsTheTypicalSlope(): void
+    {
+        // Intérieur = 8 + 0,6 × extérieur : écart = 8 − 0,4 × extérieur, c'est la pente typique.
         $model = $this->morning($this->fitter->fit($this->morningReadings([2.0, 5.0, 8.0, 11.0, 14.0], static fn (float $t): float => 8.0 + 0.6 * $t)));
 
-        self::assertSame(ModelKind::Regression, $model->kind);
         self::assertEqualsWithDelta(-0.4, $model->slope, 1e-9);
         self::assertEqualsWithDelta(8.0, $model->intercept, 1e-9);
-        self::assertSame(5, $model->readings);
-        self::assertSame(5, $model->sessions);
-        self::assertSame(2.0, $model->outdoorMin);
-        self::assertSame(14.0, $model->outdoorMax);
-        self::assertNull($model->refusal);
         self::assertEqualsWithDelta(6.4, $model->deltaAt(4.0), 1e-9);
         self::assertEqualsWithDelta(10.0, $model->deltaAt(-5.0), 1e-9, 'Plus froid : écart plus grand.');
+        self::assertSame(ModelKind::Regression, $model->kind);
+        self::assertEqualsWithDelta(90.0 / 115.0, $model->dataWeight, 1e-9);
+        self::assertSame(2.0, $model->outdoorMin);
+        self::assertSame(14.0, $model->outdoorMax);
+    }
+
+    public function testFewCloseReadingsStayTypical(): void
+    {
+        // 5 à 8 °C : Sxx = 5, la pente reste proche de la pente typique même si les données disent −0,1.
+        $model = $this->morning($this->fitter->fit($this->morningReadings([5.0, 6.0, 7.0, 8.0], static fn (float $t): float => 15.0 + 0.9 * $t)));
+
+        self::assertSame(ModelKind::Typical, $model->kind);
+        self::assertEqualsWithDelta((-0.1 * 5.0 + 25.0 * -0.4) / 30.0, $model->slope, 1e-9);
+        self::assertLessThan(0.2, $model->dataWeight);
+    }
+
+    public function testDataWeightGrowsWithTheVarietyOfTemperatures(): void
+    {
+        $weight = fn (float ...$outdoors): float => $this->morning($this->fitter->fit($this->morningReadings(array_values($outdoors), static fn (float $t): float => 8.0 + 0.6 * $t)))->dataWeight;
+
+        self::assertLessThan($weight(6.0, 7.0, 8.0, 9.0, 10.0), $weight(7.5, 8.0, 8.5));
+        self::assertLessThan($weight(2.0, 5.0, 8.0, 11.0, 14.0), $weight(6.0, 7.0, 8.0, 9.0, 10.0));
+        self::assertLessThan($weight(2.0, 5.0, 8.0, 11.0, 14.0, 17.0, 20.0), $weight(2.0, 5.0, 8.0, 11.0, 14.0));
+        self::assertSame(0.0, $weight(8.0, 8.0, 8.0), 'Aucune variété : la pente est la pente typique.');
     }
 
     public function testLinePassesThroughTheCentroid(): void
@@ -62,20 +125,22 @@ final class DeltaModelFitterTest extends TestCase
         self::assertEqualsWithDelta($meanY, $model->deltaAt($meanX), 1e-9);
     }
 
-    public function testTooFewSessionsFallBackToTheMean(): void
+    public function testSlopeIsClampedToPlausibleBounds(): void
     {
-        $model = $this->morning($this->fitter->fit($this->morningReadings([2.0, 8.0, 14.0], static fn (float $t): float => 8.0 + 0.6 * $t)));
+        $outdoors = [0.0, 2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0];
 
-        self::assertSame(ModelKind::Mean, $model->kind);
-        self::assertSame(DeltaModel::REFUSAL_FEW_SESSIONS, $model->refusal);
-        self::assertSame(0.0, $model->slope);
-        self::assertEqualsWithDelta((7.2 + 4.8 + 2.4) / 3, $model->intercept, 1e-9);
-        self::assertEqualsWithDelta($model->intercept, $model->deltaAt(-10.0), 1e-9, 'Constant, quelle que soit la température.');
+        // L'intérieur monte bien plus vite que le dehors : écart croissant, non physique pour de l'amorti.
+        $rising = $this->morning($this->fitter->fit($this->morningReadings($outdoors, static fn (float $t): float => 10.0 + 1.5 * $t)));
+        // L'intérieur baisse quand le dehors monte : écart en −1,5 × extérieur.
+        $falling = $this->morning($this->fitter->fit($this->morningReadings($outdoors, static fn (float $t): float => 20.0 - 0.5 * $t)));
+
+        self::assertSame(DeltaModelFitter::SLOPE_MAX, $rising->slope);
+        self::assertSame(DeltaModelFitter::SLOPE_MIN, $falling->slope);
     }
 
     public function testSessionsAreDistinctInstantsNotReadings(): void
     {
-        // Trois instants, deux lieux chacun : six relevés mais seulement trois instants.
+        // Trois instants, deux lieux chacun : six relevés mais trois instants.
         $salon = new Place($this->household, 'Salon');
         $cave = new Place($this->household, 'Cave');
         $readings = [];
@@ -88,46 +153,6 @@ final class DeltaModelFitterTest extends TestCase
 
         self::assertSame(6, $model->readings);
         self::assertSame(3, $model->sessions);
-        self::assertSame(ModelKind::Mean, $model->kind);
-    }
-
-    public function testNarrowOutdoorRangeFallsBackToTheMean(): void
-    {
-        $model = $this->morning($this->fitter->fit($this->morningReadings([5.0, 6.0, 6.5, 7.0], static fn (float $t): float => 18.0)));
-
-        self::assertSame(ModelKind::Mean, $model->kind);
-        self::assertSame(DeltaModel::REFUSAL_NARROW_RANGE, $model->refusal);
-        self::assertSame(4, $model->sessions);
-    }
-
-    public function testExactlyTheMinimumSpreadIsEnough(): void
-    {
-        $model = $this->morning($this->fitter->fit($this->morningReadings([5.0, 6.0, 7.0, 8.0], static fn (float $t): float => 8.0 + 0.6 * $t)));
-
-        self::assertSame(ModelKind::Regression, $model->kind, 'Quatre instants et exactement 3 °C d’étendue.');
-    }
-
-    public function testSlopeAboveZeroIsClampedAndTheMeanIsKept(): void
-    {
-        // L'intérieur monte plus vite que le dehors (soleil) : écart croissant avec la température, non physique pour de l'amorti.
-        $readings = $this->morningReadings([2.0, 5.0, 8.0, 11.0, 14.0], static fn (float $t): float => 10.0 + 1.5 * $t);
-
-        $model = $this->morning($this->fitter->fit($readings));
-
-        self::assertSame(ModelKind::Regression, $model->kind);
-        self::assertSame(0.0, $model->slope);
-        $meanDelta = array_sum(array_map(static fn (Reading $r) => $r->getDelta(), $readings)) / 5;
-        self::assertEqualsWithDelta($meanDelta, $model->intercept, 1e-9, 'Pente bornée à 0 : la droite horizontale passe par la moyenne.');
-    }
-
-    public function testSlopeBelowMinusOneIsClamped(): void
-    {
-        // Intérieur = 20 − 0,5 × extérieur : écart = 20 − 1,5 × extérieur (pente −1,5), ramenée à −1.
-        $model = $this->morning($this->fitter->fit($this->morningReadings([2.0, 5.0, 8.0, 11.0, 14.0], static fn (float $t): float => 20.0 - 0.5 * $t)));
-
-        self::assertSame(-1.0, $model->slope);
-        // Indoor constant à la moyenne : intérieur estimé indépendant du dehors.
-        self::assertEqualsWithDelta($model->deltaAt(3.0) + 3.0, $model->deltaAt(9.0) + 9.0, 1e-9);
     }
 
     public function testSlotsAreFittedIndependentlyAndOverallPoolsEverything(): void
@@ -142,7 +167,7 @@ final class DeltaModelFitterTest extends TestCase
         self::assertSame(ModelKind::Regression, $this->morning($models)->kind);
         $evening = $models->forSlot(DaySlot::Evening);
         self::assertNotNull($evening);
-        self::assertSame(ModelKind::Mean, $evening->kind);
+        self::assertSame(ModelKind::Typical, $evening->kind);
         self::assertSame(2, $evening->readings);
         self::assertNull($models->forSlot(DaySlot::Night));
         self::assertNotNull($models->overall);
@@ -174,17 +199,20 @@ final class DeltaModelFitterTest extends TestCase
         self::assertFalse($model->covers(17.1));
     }
 
-    public function testNegativeOutdoorTemperatures(): void
+    public function testNegativeOutdoorTemperaturesAndFrostEstimates(): void
     {
+        // Intérieur = 12 + 0,5 × extérieur (écart 12 − 0,5 × extérieur), relevés de −8 à 4 °C.
         $model = $this->morning($this->fitter->fit($this->morningReadings([-8.0, -5.0, -2.0, 1.0, 4.0], static fn (float $t): float => 12.0 + 0.5 * $t)));
 
-        self::assertSame(ModelKind::Regression, $model->kind);
-        self::assertEqualsWithDelta(-0.5, $model->slope, 1e-9);
-        self::assertEqualsWithDelta(12.0, $model->intercept, 1e-9);
-        self::assertEqualsWithDelta(16.0, $model->deltaAt(-8.0), 1e-9);
+        self::assertLessThan(0.0, $model->slope);
+        self::assertGreaterThanOrEqual(DeltaModelFitter::SLOPE_MIN, $model->slope);
+        self::assertLessThanOrEqual(DeltaModelFitter::SLOPE_MAX, $model->slope);
+        // Par −8 °C, l'écart relevé est de 16 : le modèle le retrouve (le point est dans les mesures).
+        self::assertEqualsWithDelta(16.0, $model->deltaAt(-8.0), 0.9);
+        self::assertGreaterThan($model->deltaAt(4.0), $model->deltaAt(-8.0), 'Plus froid, écart plus grand.');
     }
 
-    private function morning(\App\Calculation\DeltaModels $models): DeltaModel
+    private function morning(DeltaModels $models): DeltaModel
     {
         return $models->forSlot(DaySlot::Morning) ?? throw new \LogicException('Pas de modèle pour le matin.');
     }
