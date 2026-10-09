@@ -1,9 +1,10 @@
 import './stimulus_bootstrap.js';
 /*
- * Welcome to your app's main JavaScript file!
+ * Point d'entrée JavaScript, chargé par importmap() dans base.html.twig.
  *
- * This file will be included onto the page via the importmap() Twig function,
- * which should already be in your base.html.twig.
+ * La feuille de style n'est volontairement PAS importée ici : AssetMapper convertirait
+ * cet import en module « data: » injectant le CSS à l'exécution, que la CSP interdit
+ * (script-src sans data:) et qui ferait échouer tout le JavaScript. Elle est chargée par
+ * une balise <link> dans base.html.twig.
  */
-import './styles/app.css';
 

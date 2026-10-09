@@ -3,11 +3,15 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% set csp_nonce = app.request.attributes.get('csp_nonce') %}
+        {# Turbo lit ce nonce pour poser sa barre de progression sans « unsafe-inline ». #}
+        <meta name="csp-nonce" content="{{ csp_nonce }}">
         <title>{% block title %}Chauffage{% endblock %} · Chauffage</title>
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+        <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
         {% block stylesheets %}{% endblock %}
         {% block javascripts %}
-            {% block importmap %}{{ importmap('app') }}{% endblock %}
+            {% block importmap %}{{ importmap('app', {nonce: csp_nonce}) }}{% endblock %}
         {% endblock %}
     </head>
     <body class="min-h-full bg-slate-50 font-sans text-slate-900 antialiased">

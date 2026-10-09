@@ -8,6 +8,7 @@ use App\Entity\Household;
 use App\Entity\User;
 use App\Form\RegistrationFormType;
 use App\Repository\UserRepository;
+use App\Security\AuditLogger;
 use App\Security\EmailVerifier;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -25,6 +26,7 @@ final class RegistrationController extends AbstractController
     public function __construct(
         private readonly EmailVerifier $emailVerifier,
         private readonly RateLimiterFactoryInterface $registrationLimiter,
+        private readonly AuditLogger $audit,
     ) {
     }
 
@@ -45,6 +47,8 @@ final class RegistrationController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $limit = $this->registrationLimiter->create($request->getClientIp())->consume();
             if (!$limit->isAccepted()) {
+                $this->audit->warning('rate_limited', ['limiter' => 'registration']);
+
                 throw new TooManyRequestsHttpException($limit->getRetryAfter()->getTimestamp() - time());
             }
 
@@ -57,6 +61,7 @@ final class RegistrationController extends AbstractController
             $entityManager->flush();
 
             $this->emailVerifier->sendConfirmation($user);
+            $this->audit->info('registered', ['user_id' => $user->getId()]);
 
             $this->addFlash('success', 'Compte créé. Un lien de confirmation vient de vous être envoyé par email.');
 
@@ -81,11 +86,13 @@ final class RegistrationController extends AbstractController
         try {
             $this->emailVerifier->handleConfirmation($request, $user);
         } catch (VerifyEmailExceptionInterface $exception) {
+            $this->audit->warning('email_verification_failed', ['user_id' => $user->getId(), 'reason' => $exception->getReason()]);
             $this->addFlash('error', $translator->trans($exception->getReason(), [], 'VerifyEmailBundle'));
 
             return $this->redirectToRoute('app_login');
         }
 
+        $this->audit->info('email_verified', ['user_id' => $user->getId()]);
         $this->addFlash('success', 'Votre adresse email est confirmée : vous pouvez vous connecter.');
 
         return $this->redirectToRoute('app_login');

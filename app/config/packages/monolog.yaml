@@ -1,6 +1,7 @@
 monolog:
     channels: # To see all channels, run bin/console debug:autowiring logger
         - deprecation # Deprecations are logged in the dedicated "deprecation" channel when it exists
+        - audit # Événements de sécurité (connexions, inscriptions, réinitialisations) : voir App\Security\AuditLogger
 
 when@dev:
     monolog:
@@ -18,12 +19,16 @@ when@dev:
 when@test:
     monolog:
         handlers:
+            # Garde les événements d'audit en mémoire pour que les tests puissent les lire.
+            audit_test:
+                type: test
+                channels: [audit]
             main:
                 type: fingers_crossed
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!event"]
+                channels: ["!event", "!audit"]
             nested:
                 type: stream
                 path: "%kernel.logs_dir%/%kernel.environment%.log"
@@ -37,7 +42,7 @@ when@prod:
                 action_level: error
                 handler: nested
                 excluded_http_codes: [404, 405]
-                channels: ["!deprecation"]
+                channels: ["!deprecation", "!audit"]
                 buffer_size: 50 # How many messages should be saved? Prevent memory leaks
             nested:
                 type: stream
@@ -52,4 +57,12 @@ when@prod:
                 type: stream
                 channels: [deprecation]
                 path: php://stderr
+                formatter: monolog.formatter.json
+            # Journal d'audit : jamais tamponné, sinon les connexions échouées (niveau « warning »)
+            # disparaîtraient tant qu'aucune erreur ne survient.
+            audit:
+                type: stream
+                channels: [audit]
+                path: php://stderr
+                level: info
                 formatter: monolog.formatter.json

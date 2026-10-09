@@ -7,6 +7,7 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Form\ChangePasswordFormType;
 use App\Form\ResetPasswordRequestFormType;
+use App\Security\AuditLogger;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Twig\Mime\TemplatedEmail;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -34,6 +35,7 @@ final class ResetPasswordController extends AbstractController
         private readonly ResetPasswordHelperInterface $resetPasswordHelper,
         private readonly EntityManagerInterface $entityManager,
         private readonly RateLimiterFactoryInterface $passwordResetLimiter,
+        private readonly AuditLogger $audit,
         #[Autowire('%env(MAILER_FROM)%')]
         private readonly string $mailerFrom,
     ) {
@@ -54,6 +56,8 @@ final class ResetPasswordController extends AbstractController
 
             $limit = $this->passwordResetLimiter->create($request->getClientIp())->consume();
             if (!$limit->isAccepted()) {
+                $this->audit->warning('rate_limited', ['limiter' => 'password_reset']);
+
                 throw new TooManyRequestsHttpException($limit->getRetryAfter()->getTimestamp() - time());
             }
 
@@ -105,6 +109,7 @@ final class ResetPasswordController extends AbstractController
             /** @var User $user */
             $user = $this->resetPasswordHelper->validateTokenAndFetchUser($token);
         } catch (ResetPasswordExceptionInterface $e) {
+            $this->audit->warning('password_reset_token_invalid', ['reason' => $e->getReason()]);
             $this->addFlash('error', sprintf(
                 '%s - %s',
                 $translator->trans(ResetPasswordExceptionInterface::MESSAGE_PROBLEM_VALIDATE, [], 'ResetPasswordBundle'),
@@ -132,6 +137,7 @@ final class ResetPasswordController extends AbstractController
             $this->entityManager->flush();
 
             $this->cleanSessionAfterReset();
+            $this->audit->info('password_reset_completed', ['user_id' => $user->getId()]);
             $this->addFlash('success', 'Mot de passe modifié : vous pouvez vous connecter.');
 
             return $this->redirectToRoute('app_login');
@@ -149,6 +155,7 @@ final class ResetPasswordController extends AbstractController
         ]);
 
         // Do not reveal whether a user account was found or not.
+        $this->audit->info('password_reset_requested', ['identifier' => AuditLogger::fingerprint($emailFormData), 'known_account' => null !== $user]);
         if (!$user) {
             return $this->redirectToRoute('app_check_email');
         }

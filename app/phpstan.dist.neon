@@ -13,3 +13,7 @@ parameters:
         -
             message: '#Service "test\.cache\.rate_limiter" is not registered in the container\.#'
             path: tests/Support/ResetsRateLimiters.php
+        # Idem pour le gestionnaire d'audit en mémoire (when@test).
+        -
+            message: '#Service "test\.audit_handler" is not registered in the container\.#'
+            path: tests/Controller/AuditTrailTest.php

@@ -16,7 +16,7 @@
 
 {% block form_widget_simple -%}
     {%- if type|default('text') != 'hidden' -%}
-        {%- set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900')|trim}) -%}
+        {%- set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900')|trim}) -%}
         {%- if errors|length > 0 -%}
             {%- set attr = attr|merge({'aria-invalid': 'true', 'aria-describedby': id ~ '_errors'}) -%}
         {%- endif -%}
@@ -41,7 +41,7 @@
 {%- endblock form_errors %}
 
 {% block choice_widget_collapsed -%}
-    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900')|trim}) -%}
+    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-md border border-slate-500 bg-white placeholder:text-slate-500 px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900')|trim}) -%}
     {%- if errors|length > 0 -%}
         {%- set attr = attr|merge({'aria-invalid': 'true', 'aria-describedby': id ~ '_errors'}) -%}
     {%- endif -%}

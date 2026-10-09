@@ -7,6 +7,8 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    # Vrai pour poser la CSP aussi en développement (elle n'est posée qu'hors debug sinon).
+    env(APP_CSP): ''
 
 services:
     # default configuration for services in *this* file
@@ -33,6 +35,11 @@ when@test:
         App\Forecast\HourlyTemperatureProviderInterface: '@App\Tests\Support\FakeForecastProvider'
 
         App\Tests\Support\NoLeakHttpClient: ~
+
+        # Journal d'audit en mémoire, lisible par les tests.
+        test.audit_handler:
+            alias: monolog.handler.audit_test
+            public: true
 
         # Les limiteurs de débit gardent leur état entre deux exécutions : les tests le vident.
         test.cache.rate_limiter:

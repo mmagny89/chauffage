@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% if status_code == 404 %}Page introuvable{% elseif status_code == 403 %}Accès refusé{% elseif status_code == 429 %}Trop de requêtes{% else %}Une erreur est survenue{% endif %} · Chauffage</title>
+        <link rel="stylesheet" href="{{ asset('styles/app.css') }}">
+    </head>
+    <body class="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+        <main class="mx-auto max-w-xl px-4 py-16">
+            <p class="mb-2 text-sm font-semibold text-slate-600">Erreur {{ status_code }}</p>
+            <h1 class="mb-4 text-2xl font-semibold">
+                {% if status_code == 404 %}Cette page n’existe pas
+                {% elseif status_code == 403 %}Vous n’avez pas accès à cette page
+                {% elseif status_code == 429 %}Trop de tentatives
+                {% else %}Une erreur est survenue{% endif %}
+            </h1>
+            <p class="mb-6 text-slate-700">
+                {% if status_code == 404 %}L’adresse est peut-être erronée, ou la page a été déplacée.
+                {% elseif status_code == 403 %}Cette ressource appartient à un autre compte, ou nécessite une autre autorisation.
+                {% elseif status_code == 429 %}Patientez quelques minutes avant de réessayer.
+                {% else %}Le problème a été enregistré. Réessayez dans un instant ; s’il persiste, revenez plus tard.{% endif %}
+            </p>
+            <a href="/" class="inline-block rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Retour à l’accueil</a>
+        </main>
+    </body>
+</html>
