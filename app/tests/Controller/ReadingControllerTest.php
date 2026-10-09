@@ -161,6 +161,7 @@ final class ReadingControllerTest extends WebTestCase
 
         $select = $crawler->filter('select[name="day_readings[rows][0][place]"]');
         self::assertCount(1, $select);
+        self::assertStringContainsString('w-full rounded-md border', (string) $select->attr('class'), 'La liste est habillée comme les autres champs.');
         self::assertGreaterThan(10, $select->filter('optgroup[label=Pièces] option')->count());
         self::assertSame('Cuisine', $select->filter('optgroup[label=Pièces] option')->eq(3)->text());
         self::assertSame(['Atelier'], $select->filter('optgroup[label="Vos autres lieux"] option')->each(static fn ($o) => $o->text()));
