@@ -20,7 +20,7 @@ use Symfony\Component\HttpKernel\Profiler\Profile;
 /**
  * Garde-fou contre les requêtes N+1 : le nombre de requêtes SQL d'une page ne dépend pas
  * du nombre de relevés ni de lieux. Un budget par page, mesuré avec un foyer fourni
- * (10 lieux, 30 jours, 4 relevés par jour et par lieu : 1 200 relevés) : 1 à 6 requêtes
+ * (10 lieux, 30 jours, 4 relevés par jour et par lieu : 1 200 relevés) : 1 à 7 requêtes
  * par page, budget = mesure + une de marge.
  */
 final class QueryBudgetTest extends WebTestCase
@@ -41,7 +41,7 @@ final class QueryBudgetTest extends WebTestCase
      */
     public static function budgets(): iterable
     {
-        yield 'accueil' => ['/', 6];
+        yield 'accueil' => ['/', 7];
         yield 'relevés' => ['/releves', 8];
         yield 'écarts' => ['/ecarts', 7];
         yield 'réglages' => ['/reglages', 6];
@@ -102,6 +102,7 @@ final class QueryBudgetTest extends WebTestCase
 
         for ($p = 1; $p <= 10; ++$p) {
             $place = new Place($household, 'Lieu '.$p);
+            $place->setTarget(\App\Enum\DaySlot::Morning, 19.0);
             $em->persist($place);
             for ($day = 1; $day <= 30; ++$day) {
                 foreach (['03:00', '08:00', '14:00', '20:00'] as $time) {

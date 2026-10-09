@@ -47,7 +47,8 @@ final class RecommendationController extends AbstractController
         $analysis = $recommendations->analyze($household);
         $timezone = new \DateTimeZone($household->getTimezone());
 
-        $places = $placeRepository->findByHousehold($household);
+        // Dès qu'une pièce a des températures visées propres, toutes les pièces ont leur recommandation.
+        $places = $placeRepository->findForRecommendations($household);
         $selected = $this->selectedPlace($request, $places);
 
         $set = null;
@@ -77,19 +78,19 @@ final class RecommendationController extends AbstractController
         $label = fn ($slot): string => $slot->recommendation->slot->label().' · '.$dayLabel($slot->date);
         $upcoming = array_map(
             static fn ($slot): array => ['label' => $label($slot), 'item' => $slot->recommendation],
-            $engine->upcoming($days, $now, self::UPCOMING),
+            $engine->upcoming($days, $now, self::UPCOMING, $analysis->heating, $selected?->getName()),
         );
 
-        // Pièce par pièce, pour les mêmes créneaux que le foyer entier : seulement s'il y en a plusieurs.
+        // Pièce par pièce, pour les mêmes créneaux que le foyer entier : seulement les pièces à températures propres.
         $placeRows = [];
         $columns = [];
-        if (null === $selected && \count($places) >= 2 && null !== $set) {
+        if (null === $selected && [] !== $places && null !== $set) {
             $columns = array_map(static fn ($slot): string => $label($slot), $engine->upcoming($householdDays, $now, self::UPCOMING));
             foreach ($places as $place) {
                 $placeRows[] = [
                     'place' => $place,
                     'hasReadings' => $analysis->hasReadingsFor($place->getName()),
-                    'cells' => array_map(static fn ($slot) => $slot->recommendation, $engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING)),
+                    'cells' => array_map(static fn ($slot) => $slot->recommendation, $engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING, $analysis->heating, $place->getName())),
                 ];
             }
         }

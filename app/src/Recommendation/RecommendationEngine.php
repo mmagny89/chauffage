@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Recommendation;
 
 use App\Calculation\DeltaModels;
+use App\Calculation\HeatingDays;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
 use App\Forecast\DayForecast;
@@ -19,6 +20,10 @@ use App\Forecast\DayForecast;
  * de la plage des températures mesurées est signalée. Si l'estimation est strictement sous
  * la température visée, on chauffe, à cette température ; sinon on coupe. Calcul pur, en
  * dixièmes de degré entiers.
+ *
+ *
+ * Dans la liste des créneaux à venir, un créneau d'aujourd'hui où le chauffage a déjà été allumé est
+ * marqué comme tel : l'affichage dit « Chauffer » sans température (HeatingDays).
  */
 final class RecommendationEngine
 {
@@ -47,11 +52,12 @@ final class RecommendationEngine
      * cours d'abord, puis les suivants.
      *
      * @param list<DayRecommendation> $days
-     * @param \DateTimeImmutable      $now  heure murale locale du foyer
+     * @param \DateTimeImmutable      $now       heure murale locale du foyer
+     * @param string|null             $placeName nom de la pièce des créneaux ; null pour le foyer entier
      *
      * @return list<UpcomingSlot>
      */
-    public function upcoming(array $days, \DateTimeImmutable $now, int $count): array
+    public function upcoming(array $days, \DateTimeImmutable $now, int $count, ?HeatingDays $heating = null, ?string $placeName = null): array
     {
         $upcoming = [];
         foreach ($days as $day) {
@@ -60,7 +66,9 @@ final class RecommendationEngine
                 if ($end <= $now) {
                     continue;
                 }
-                $upcoming[] = new UpcomingSlot($day->date, $day->forSlot($slot));
+                $recommendation = $day->forSlot($slot);
+                $heatedToday = null !== $heating && $day->date->format('Y-m-d') === $now->format('Y-m-d') && $heating->has($day->date->format('Y-m-d'), $placeName);
+                $upcoming[] = new UpcomingSlot($day->date, $heatedToday ? $recommendation->withHeatingOn() : $recommendation);
                 if (\count($upcoming) === $count) {
                     return $upcoming;
                 }
@@ -91,10 +99,11 @@ final class RecommendationEngine
         $deltaTenths = (int) round($model->deltaAt($forecast->average) * 10);
         $estimatedTenths = (int) round($forecast->average * 10) + $deltaTenths;
         $targetTenths = (int) round($target * 10);
+        $action = $estimatedTenths < $targetTenths ? HeatingAction::Heat : HeatingAction::Cut;
 
         return new SlotRecommendation(
             $slot,
-            $estimatedTenths < $targetTenths ? HeatingAction::Heat : HeatingAction::Cut,
+            $action,
             $target,
             $forecast->average,
             $deltaTenths / 10,

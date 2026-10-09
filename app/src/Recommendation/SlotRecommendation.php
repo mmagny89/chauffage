@@ -24,6 +24,7 @@ final readonly class SlotRecommendation
         public bool $forecastComplete,
         public ?ModelKind $method = null,
         public bool $extrapolated = false,
+        public bool $heatingOn = false,
     ) {
     }
 
@@ -33,6 +34,15 @@ final readonly class SlotRecommendation
     public function setpoint(): ?float
     {
         return HeatingAction::Heat === $this->action ? $this->target : null;
+    }
+
+    /**
+     * Le même créneau, marqué comme « chauffage déjà allumé » : l'affichage dit alors « Chauffer » sans
+     * température, la consigne étant déjà réglée.
+     */
+    public function withHeatingOn(): self
+    {
+        return new self($this->slot, $this->action, $this->target, $this->outdoor, $this->delta, $this->estimatedIndoor, $this->deltaSamples, $this->deltaIsFallback, $this->forecastComplete, $this->method, $this->extrapolated, true);
     }
 
     public static function unknown(DaySlot $slot, float $target, ?float $outdoor, bool $forecastComplete): self
