@@ -1,0 +1,64 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Quand chauffer, quand couper{% endblock %}
+
+{% block body %}
+{% import 'partials/_icon.html.twig' as ui %}
+<section aria-labelledby="titre" class="mb-10">
+    <h1 id="titre" class="mb-3 flex items-center gap-2 text-3xl font-semibold"><span class="text-amber-600">{{ ui.icon('flame', 'size-8') }}</span>Quand chauffer, quand couper</h1>
+    <p class="mb-4 max-w-2xl text-lg text-slate-800">
+        Chauffage vous dit, pour les quinze prochains jours, à quels moments allumer le chauffage de votre logement et à quels moments il peut rester éteint,
+        pour que chaque pièce soit à la température que vous visez sans chauffer pour rien.
+    </p>
+    <div class="flex flex-col gap-3 sm:flex-row">
+        <a href="{{ path('app_register') }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700">{{ ui.icon('user') }}Créer un compte</a>
+        <a href="{{ path('app_login') }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-slate-500 bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-100">{{ ui.icon('login') }}Se connecter</a>
+    </div>
+</section>
+
+<section aria-labelledby="principe" class="mb-10">
+    <h2 id="principe" class="mb-3 flex items-center gap-2 text-xl font-semibold">{{ ui.icon('info', 'size-5') }}Le principe</h2>
+    <p class="mb-3 max-w-2xl text-slate-800">
+        Sans chauffage, la température d’une pièce suit celle du dehors, en plus douce : elle reste plus chaude qu’à l’extérieur, et l’écart se réduit quand il fait doux.
+        En mesurant cet écart chez vous, pièce par pièce, on peut estimer la température qu’il fera à l’intérieur d’après la météo prévue, et en déduire
+        si elle tombera sous votre cible.
+    </p>
+</section>
+
+<section aria-labelledby="etapes" class="mb-10">
+    <h2 id="etapes" class="mb-3 flex items-center gap-2 text-xl font-semibold">{{ ui.icon('check', 'size-5') }}En trois étapes</h2>
+    <ol class="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <li class="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 class="mb-2 flex items-center gap-2 font-semibold">{{ ui.icon('settings', 'size-5') }}1. Mise en route</h3>
+            <p class="text-sm text-slate-700">Choisissez votre ville, déclarez vos pièces et fixez les températures visées, par jour de la semaine et par moment de la journée.</p>
+        </li>
+        <li class="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 class="mb-2 flex items-center gap-2 font-semibold">{{ ui.icon('thermometer', 'size-5') }}2. Quelques relevés</h3>
+            <p class="text-sm text-slate-700">Chauffage éteint, notez la température dehors et dans chaque pièce. Cinq jours suffisent pour commencer ; plus ils sont variés, plus l’estimation s’affine.</p>
+        </li>
+        <li class="rounded-lg border border-slate-200 bg-white p-4">
+            <h3 class="mb-2 flex items-center gap-2 font-semibold">{{ ui.icon('flame', 'size-5') }}3. Les recommandations</h3>
+            <p class="text-sm text-slate-700">Pour chaque moment des quinze prochains jours : « Chauffer » ou « Couper », avec la température intérieure estimée.</p>
+        </li>
+    </ol>
+</section>
+
+<section aria-labelledby="details" class="mb-10">
+    <h2 id="details" class="mb-3 flex items-center gap-2 text-xl font-semibold">{{ ui.icon('sliders', 'size-5') }}Ce qu’il faut savoir</h2>
+    <ul class="max-w-2xl list-disc space-y-2 pl-5 text-slate-800">
+        <li>La journée est découpée en matin, après-midi, soirée et nuit ; la nuit d’un jour va de 22 h à 6 h le lendemain.</li>
+        <li>Si l’intérieur estimé est strictement sous votre cible, on chauffe ; sinon, on coupe.</li>
+        <li>Une pièce peut avoir ses propres températures visées et son propre écart, avec une recommandation à elle.</li>
+        <li>Au-delà de sept jours, les prévisions météo deviennent incertaines : ces lignes sont grisées. Avant cinq jours de relevés, les résultats sont signalés comme provisoires.</li>
+        <li>C’est une estimation, pas une mesure : elle s’appuie sur vos relevés et sur une hypothèse moyenne d’isolation, qui laisse la place à vos propres données dès qu’elles sont assez nombreuses.</li>
+    </ul>
+</section>
+
+<section aria-labelledby="donnees" class="mb-4">
+    <h2 id="donnees" class="mb-3 flex items-center gap-2 text-xl font-semibold">{{ ui.icon('cloud', 'size-5') }}Vos données et la météo</h2>
+    <p class="max-w-2xl text-slate-800">
+        Les prévisions viennent d’<a href="https://open-meteo.com/" class="underline underline-offset-2">Open-Meteo</a>, interrogé depuis le serveur : votre navigateur ne contacte aucun service tiers.
+        Un compte correspond à un foyer ; vos relevés ne sont visibles que de vous.
+    </p>
+</section>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mon compte{% endblock %}
+
+{% block body %}
+{% import 'partials/_icon.html.twig' as ui %}
+<h1 class="mb-1 flex items-center gap-2 text-2xl font-semibold"><span class="text-amber-600">{{ ui.icon('user', 'size-7') }}</span>Mon compte</h1>
+<p class="mb-6 text-slate-700">Adresse de connexion : <strong>{{ email }}</strong></p>
+
+<section aria-labelledby="mot-de-passe" class="max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+    <h2 id="mot-de-passe" class="mb-4 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('key', 'size-5') }}Changer de mot de passe</h2>
+
+    {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_row(form.currentPassword) }}
+        {{ form_row(form.plainPassword.first) }}
+        {{ form_row(form.plainPassword.second) }}
+        {% include 'partials/_button.html.twig' with {label: 'Enregistrer', icon: 'check'} %}
+    {{ form_end(form) }}
+</section>
+{% endblock %}
