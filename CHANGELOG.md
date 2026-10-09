@@ -10,10 +10,23 @@ règles métier et des pièges déjà payés vit dans [`CLAUDE.md`](CLAUDE.md).
 
 ## [Non publié]
 
-Première version utilisable de bout en bout, en attente d'être étiquetée.
+## [0.1.0] - 2026-10-09
+
+Première version utilisable de bout en bout.
 
 ### Ajouté
 
+- **Page de présentation** : un visiteur non connecté voit sur `/` ce que fait le projet (principe, trois
+  étapes, règles à connaître, origine des données) avec l'accès à l'inscription et à la connexion ; un
+  utilisateur connecté garde son tableau de bord.
+- **Mon compte** (`/compte`) : changement de mot de passe, avec le mot de passe actuel, les mêmes exigences
+  qu'à l'inscription et un nombre de tentatives limité. L'utilisateur reste connecté, ses autres sessions
+  sont fermées. Le menu propose « Mon compte » et un bouton de déconnexion réduit à son icône.
+- **Pied de page** : liens vers le profil GitHub de l'auteur et le code source.
+- **Allumages du chauffage** : dans le formulaire de relevé, une consigne facultative par lieu note que le
+  chauffage est allumé juste après. Un allumage n'entre pas dans le calcul des écarts ; noté aujourd'hui, il
+  fait afficher « Chauffer » sans température pour les créneaux du jour.
+- **Icônes** : une icône par pièce d'après son nom, et des icônes dans l'interface.
 - **Comptes** : inscription avec confirmation de l'adresse par un lien signé, connexion
   refusée tant que l'adresse n'est pas confirmée, mot de passe oublié. Un compte
   correspond à un foyer.
@@ -60,4 +73,5 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
 
 - Content-Security-Policy à nonce, journal d'audit des événements de sécurité, limitation
   des tentatives de connexion, d'inscription et de réinitialisation, contrôle d'accès par
-  Voters et jeton CSRF sur chaque action.
+  Voters et jeton CSRF sur chaque action. Le changement de mot de passe exige l'ancien et
+  limite les tentatives ; il ferme les autres sessions.

@@ -44,13 +44,14 @@ vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 p
 
 ## État du projet
 
-Utilisable de bout en bout ; pas encore de version étiquetée (voir le
-[journal des versions](CHANGELOG.md)). Prévu ensuite : alertes par email et récapitulatif
+Utilisable de bout en bout, version **0.1.0** (voir le [journal des versions](CHANGELOG.md)) ;
+pas encore d'environnement de pré-production ni de production. Prévu ensuite : alertes par email et récapitulatif
 quotidien (nécessite un worker).
 
 | Domaine | Ce qui fonctionne aujourd'hui |
 |---|---|
-| **Comptes** | Inscription avec lien de confirmation, connexion, mot de passe oublié. Un compte, un foyer. |
+| **Comptes** | Inscription avec lien de confirmation, connexion, mot de passe oublié, changement de mot de passe (« Mon compte »). Un compte, un foyer. |
+| **Accueil** | Page de présentation pour un visiteur, tableau de bord pour un utilisateur connecté. |
 | **Lieux et relevés** | Lieux déclarés dans les réglages ; un relevé renseigne tous les lieux ; jauge de calibrage (cinq jours). |
 | **Écarts** | Moyenne par lieu et par moment de la journée ; modèle retenu et sa formule. |
 | **Prévisions** | Quinze jours, par moment de la journée, via Open-Meteo. |
