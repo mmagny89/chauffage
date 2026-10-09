@@ -27,9 +27,18 @@ final class AuthenticationTest extends WebTestCase
         self::resetRateLimiters();
     }
 
-    public function testAnonymousVisitorIsSentToLogin(): void
+    public function testAnonymousVisitorSeesThePresentationPage(): void
     {
         $this->client->request('GET', '/');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('h1', 'Quand chauffer, quand couper');
+        self::assertSelectorExists('a[href="/register"]');
+    }
+
+    public function testAnonymousVisitorIsSentToLoginFromProtectedPages(): void
+    {
+        $this->client->request('GET', '/releves');
 
         self::assertResponseRedirects('/login');
     }

@@ -36,8 +36,13 @@ final class HomeController extends AbstractController
         PlaceRepository $placeRepository,
         DateLabels $labels,
         ClockInterface $clock,
-        #[CurrentUser] User $user,
+        #[CurrentUser] ?User $user,
     ): Response {
+        // Visiteur non connecté : page de présentation du projet.
+        if (null === $user) {
+            return $this->render('home/landing.html.twig');
+        }
+
         $household = $households->forUser($user);
         $analysis = $recommendations->analyze($household);
         $hasReadings = !$analysis->report->isEmpty();

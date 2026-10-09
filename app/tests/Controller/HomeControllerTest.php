@@ -34,13 +34,6 @@ final class HomeControllerTest extends WebTestCase
         parent::tearDown();
     }
 
-    public function testAnonymousVisitorIsSentToLogin(): void
-    {
-        $this->client->request('GET', '/');
-
-        self::assertResponseRedirects('/login');
-    }
-
     public function testWithoutReadingsTheDashboardInvitesToTheFirstOne(): void
     {
         $this->client->loginUser($this->createUser('a@example.com'));
