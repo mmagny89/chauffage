@@ -1,0 +1,13 @@
+<fieldset data-collection-target="item" class="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+    <div class="mb-3 flex items-center justify-between">
+        <legend data-collection-title class="text-sm font-semibold text-slate-800">Relevé</legend>
+        <button type="button" data-action="collection#remove" data-collection-remove
+                class="rounded text-sm text-slate-700 underline underline-offset-2 hover:text-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Retirer ce relevé</button>
+    </div>
+    <div class="grid gap-x-4 sm:grid-cols-2">
+        {{ form_row(row.place) }}
+        {{ form_row(row.time) }}
+        {{ form_row(row.outdoor) }}
+        {{ form_row(row.indoor) }}
+    </div>
+</fieldset>

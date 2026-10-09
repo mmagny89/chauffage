@@ -1,0 +1,98 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Relevés{% endblock %}
+
+{% block body %}
+<h1 class="mb-2 text-2xl font-semibold">Relevés de température</h1>
+<p class="mb-6 text-slate-700">Notez, pour chaque lieu, la température extérieure et la température intérieure à une même heure. L’outil en déduira l’écart moyen de chaque lieu.</p>
+
+<section aria-labelledby="progression" class="mb-8 rounded-lg border border-slate-200 bg-white p-4">
+    <h2 id="progression" class="mb-2 text-sm font-semibold text-slate-800">Calibrage</h2>
+    {% set done = min(daysDone, daysRequired) %}
+    <div role="progressbar" aria-labelledby="progression" aria-valuemin="0" aria-valuemax="{{ daysRequired }}" aria-valuenow="{{ done }}"
+         aria-valuetext="{{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} sur {{ daysRequired }}"
+         class="mb-2 h-2 w-full overflow-hidden rounded bg-slate-200">
+        <div class="h-full bg-emerald-600" style="width: {{ (done / daysRequired * 100)|round }}%"></div>
+    </div>
+    <p class="text-sm text-slate-700">
+        {% if daysDone >= daysRequired %}
+            {{ daysDone }} jours renseignés : le calibrage est possible. Ajouter des jours affine la moyenne.
+        {% else %}
+            {{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} sur {{ daysRequired }} : encore {{ daysRequired - daysDone }} à renseigner pour calibrer.
+        {% endif %}
+    </p>
+</section>
+
+<section aria-labelledby="ajout" class="mb-10">
+    <h2 id="ajout" class="mb-4 text-lg font-semibold">Ajouter un jour</h2>
+
+    {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+        <div class="max-w-xs">{{ form_row(form.date) }}</div>
+
+        {{ form_errors(form.rows) }}
+        <div data-controller="collection"
+             data-collection-index-value="{{ form.rows|length }}"
+             data-collection-prototype-value="{{ include('reading/_row.html.twig', {row: form.rows.vars.prototype})|e('html_attr') }}">
+            <div data-collection-target="list">
+                {% for row in form.rows %}
+                    {{ include('reading/_row.html.twig', {row: row}) }}
+                {% endfor %}
+            </div>
+            <button type="button" data-action="collection#add"
+                    class="mb-6 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">+ Ajouter un lieu</button>
+        </div>
+
+        {% do form.rows.setRendered %}
+        <div class="max-w-xs">{% include 'partials/_button.html.twig' with {label: 'Enregistrer le jour'} %}</div>
+    {{ form_end(form) }}
+
+    <datalist id="place-suggestions">
+        {% for name in placeSuggestions %}<option value="{{ name }}"></option>{% endfor %}
+    </datalist>
+</section>
+
+<section aria-labelledby="historique">
+    <h2 id="historique" class="mb-4 text-lg font-semibold">Relevés enregistrés</h2>
+
+    {% for day in days %}
+        <div class="mb-6 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table class="w-full text-left text-sm">
+                <caption class="border-b border-slate-200 bg-slate-100 px-4 py-2 text-left font-semibold text-slate-800">{{ day.label }}</caption>
+                <thead class="text-slate-600">
+                    <tr>
+                        <th scope="col" class="px-4 py-2 font-medium">Lieu</th>
+                        <th scope="col" class="px-4 py-2 font-medium">Heure</th>
+                        <th scope="col" class="px-4 py-2 font-medium">Créneau</th>
+                        <th scope="col" class="px-4 py-2 text-right font-medium">Extérieur</th>
+                        <th scope="col" class="px-4 py-2 text-right font-medium">Intérieur</th>
+                        <th scope="col" class="px-4 py-2 text-right font-medium">Écart</th>
+                        <th scope="col" class="px-4 py-2"><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reading in day.readings %}
+                        <tr class="border-t border-slate-100">
+                            <th scope="row" class="px-4 py-2 font-medium">{{ reading.place.name }}</th>
+                            <td class="px-4 py-2">{{ reading.measuredAt|date('H:i') }}</td>
+                            <td class="px-4 py-2">{{ reading.slot.label }}</td>
+                            <td class="px-4 py-2 text-right">{{ reading.outdoorTemperature|number_format(1, ',') }} °C</td>
+                            <td class="px-4 py-2 text-right">{{ reading.indoorTemperature|number_format(1, ',') }} °C</td>
+                            <td class="px-4 py-2 text-right">{{ reading.delta > 0 ? '+' : '' }}{{ reading.delta|number_format(1, ',') }} °C</td>
+                            <td class="px-4 py-2 text-right">
+                                <form method="post" action="{{ path('app_reading_delete', {id: reading.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('delete-reading-' ~ reading.id) }}">
+                                    <button type="submit" class="rounded text-slate-700 underline underline-offset-2 hover:text-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                                        Supprimer<span class="sr-only"> le relevé de {{ reading.place.name }} à {{ reading.measuredAt|date('H:i') }}</span>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="text-slate-600">Aucun relevé pour le moment.</p>
+    {% endfor %}
+</section>
+{% endblock %}
