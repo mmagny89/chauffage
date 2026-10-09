@@ -21,3 +21,19 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+when@test:
+    services:
+        App\Tests\Support\NoLeakHttpClient: ~
+
+        # Les limiteurs de débit gardent leur état entre deux exécutions : les tests le vident.
+        test.cache.rate_limiter:
+            alias: cache.rate_limiter
+            public: true
+
+        validator.not_compromised_password:
+            class: Symfony\Component\Validator\Constraints\NotCompromisedPasswordValidator
+            arguments:
+                - '@App\Tests\Support\NoLeakHttpClient'
+            tags:
+                - { name: validator.constraint_validator }

@@ -1,0 +1,39 @@
+{% extends 'form_div_layout.html.twig' %}
+
+{% block form_row -%}
+    <div class="mb-5">
+        {{- form_label(form) -}}
+        {{- form_widget(form) -}}
+        {{- form_help(form) -}}
+        {{- form_errors(form) -}}
+    </div>
+{%- endblock form_row %}
+
+{% block form_label -%}
+    {%- set label_attr = label_attr|merge({class: (label_attr.class|default('') ~ ' mb-1 block text-sm font-medium text-slate-800')|trim}) -%}
+    {{- parent() -}}
+{%- endblock form_label %}
+
+{% block form_widget_simple -%}
+    {%- set attr = attr|merge({class: (attr.class|default('') ~ ' block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900')|trim}) -%}
+    {%- if errors|length > 0 -%}
+        {%- set attr = attr|merge({'aria-invalid': 'true', 'aria-describedby': id ~ '_errors'}) -%}
+    {%- endif -%}
+    {{- parent() -}}
+{%- endblock form_widget_simple %}
+
+{% block form_help -%}
+    {%- if help is not empty -%}
+        <p id="{{ id }}_help" class="mt-1 text-sm text-slate-600">{{ help }}</p>
+    {%- endif -%}
+{%- endblock form_help %}
+
+{% block form_errors -%}
+    {%- if errors|length > 0 -%}
+        <ul id="{{ id }}_errors" class="mt-1 text-sm font-medium text-red-700">
+            {%- for error in errors -%}
+                <li>{{ error.message }}</li>
+            {%- endfor -%}
+        </ul>
+    {%- endif -%}
+{%- endblock form_errors %}

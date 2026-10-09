@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Créer un compte{% endblock %}
+
+{% block body %}
+<section class="mx-auto max-w-md">
+    <h1 class="mb-2 text-2xl font-semibold">Créer un compte</h1>
+    <p class="mb-6 text-sm text-slate-600">Un compte correspond à un foyer. Un lien de confirmation sera envoyé à votre adresse.</p>
+
+    {{ form_start(registrationForm, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_row(registrationForm.email) }}
+        {{ form_row(registrationForm.plainPassword) }}
+        {% include 'partials/_button.html.twig' with {label: 'Créer mon compte'} %}
+    {{ form_end(registrationForm) }}
+
+    <p class="mt-6 text-sm text-slate-700">Déjà inscrit ? <a href="{{ path('app_login') }}" class="underline underline-offset-2">Se connecter</a></p>
+</section>
+{% endblock %}

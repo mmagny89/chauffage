@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Connexion{% endblock %}
+
+{% block body %}
+<section class="mx-auto max-w-md">
+    <h1 class="mb-6 text-2xl font-semibold">Connexion</h1>
+
+    <form method="post" novalidate>
+        {% if error %}
+            <div role="alert" class="mb-5 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+
+        <div class="mb-5">
+            <label for="username" class="mb-1 block text-sm font-medium text-slate-800">Adresse email</label>
+            <input type="email" id="username" name="_username" value="{{ last_username }}" autocomplete="email" required autofocus
+                   class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+        </div>
+        <div class="mb-5">
+            <label for="password" class="mb-1 block text-sm font-medium text-slate-800">Mot de passe</label>
+            <input type="password" id="password" name="_password" autocomplete="current-password" required
+                   class="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 shadow-sm focus:border-slate-900 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+        </div>
+
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+        {% include 'partials/_button.html.twig' with {label: 'Se connecter'} %}
+    </form>
+
+    <p class="mt-6 text-sm text-slate-700">
+        <a href="{{ path('app_forgot_password_request') }}" class="underline underline-offset-2">Mot de passe oublié ?</a>
+        ·
+        <a href="{{ path('app_register') }}" class="underline underline-offset-2">Créer un compte</a>
+    </p>
+</section>
+{% endblock %}

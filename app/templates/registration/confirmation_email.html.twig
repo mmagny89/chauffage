@@ -1,0 +1,8 @@
+<h1>Bienvenue sur Chauffage</h1>
+
+<p>Confirmez votre adresse email en suivant ce lien :</p>
+<p><a href="{{ signedUrl }}">{{ signedUrl }}</a></p>
+
+<p>Ce lien expire dans {{ expiresAtMessageKey|trans(expiresAtMessageData, 'VerifyEmailBundle') }}.</p>
+
+<p>Si vous n’êtes pas à l’origine de cette inscription, ignorez ce message.</p>

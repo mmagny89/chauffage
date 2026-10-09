@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mot de passe oublié{% endblock %}
+
+{% block body %}
+<section class="mx-auto max-w-md">
+    <h1 class="mb-2 text-2xl font-semibold">Mot de passe oublié</h1>
+    <p class="mb-6 text-sm text-slate-600">Indiquez votre adresse : si un compte existe, vous recevrez un lien pour choisir un nouveau mot de passe.</p>
+
+    {{ form_start(requestForm, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_row(requestForm.email) }}
+        {% include 'partials/_button.html.twig' with {label: 'Envoyer le lien'} %}
+    {{ form_end(requestForm) }}
+</section>
+{% endblock %}

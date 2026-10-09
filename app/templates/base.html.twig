@@ -1,24 +1,41 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr" class="h-full">
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
-        {% block stylesheets %}
-        {% endblock %}
-
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>{% block title %}Chauffage{% endblock %} · Chauffage</title>
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+        {% block stylesheets %}{% endblock %}
         {% block javascripts %}
             {% block importmap %}{{ importmap('app') }}{% endblock %}
         {% endblock %}
-
-        {% set frankenphp_hot_reload = app.request.server.get('FRANKENPHP_HOT_RELOAD') %}
-        {% if frankenphp_hot_reload %}
-        <meta name="frankenphp-hot-reload:url" content="{{ frankenphp_hot_reload }}">
-        <script src="https://cdn.jsdelivr.net/npm/idiomorph"></script>
-        <script src="https://cdn.jsdelivr.net/npm/frankenphp-hot-reload/+esm" type="module"></script>
-        {% endif %}
     </head>
-    <body>
-        {% block body %}{% endblock %}
+    <body class="min-h-full bg-slate-50 font-sans text-slate-900 antialiased">
+        <a href="#contenu" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:shadow">Aller au contenu</a>
+
+        <header class="border-b border-slate-200 bg-white">
+            <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+                <a href="{{ path('app_home') }}" class="text-lg font-semibold">🔥 Chauffage</a>
+                <nav aria-label="Compte">
+                    {% if is_granted('ROLE_USER') %}
+                        <span class="mr-3 hidden text-sm text-slate-600 sm:inline">{{ app.user.userIdentifier }}</span>
+                        <a href="{{ logout_path() }}" class="text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Se déconnecter</a>
+                    {% else %}
+                        <a href="{{ path('app_login') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Se connecter</a>
+                        <a href="{{ path('app_register') }}" class="text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Créer un compte</a>
+                    {% endif %}
+                </nav>
+            </div>
+        </header>
+
+        <main id="contenu" class="mx-auto max-w-4xl px-4 py-8">
+            {% for type, messages in app.flashes %}
+                {% for message in messages %}
+                    <div role="{{ type == 'error' ? 'alert' : 'status' }}" class="mb-6 rounded-md border px-4 py-3 text-sm {{ type == 'error' ? 'border-red-300 bg-red-50 text-red-900' : 'border-emerald-300 bg-emerald-50 text-emerald-900' }}">{{ message }}</div>
+                {% endfor %}
+            {% endfor %}
+
+            {% block body %}{% endblock %}
+        </main>
     </body>
 </html>

@@ -1,0 +1,15 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nouveau mot de passe{% endblock %}
+
+{% block body %}
+<section class="mx-auto max-w-md">
+    <h1 class="mb-6 text-2xl font-semibold">Nouveau mot de passe</h1>
+
+    {{ form_start(resetForm, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_row(resetForm.plainPassword.first) }}
+        {{ form_row(resetForm.plainPassword.second) }}
+        {% include 'partials/_button.html.twig' with {label: 'Enregistrer'} %}
+    {{ form_end(resetForm) }}
+</section>
+{% endblock %}

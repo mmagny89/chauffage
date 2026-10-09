@@ -1,0 +1,11 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Vérifiez vos emails{% endblock %}
+
+{% block body %}
+<section class="mx-auto max-w-md">
+    <h1 class="mb-4 text-2xl font-semibold">Vérifiez vos emails</h1>
+    <p class="mb-2 text-slate-700">Si un compte correspond à cette adresse, un message contenant un lien de réinitialisation vient de partir. Il expire dans {{ resetToken.expirationMessageKey|trans(resetToken.expirationMessageData, 'ResetPasswordBundle') }}.</p>
+    <p class="text-sm text-slate-600">Rien reçu ? Vérifiez vos courriers indésirables, ou <a href="{{ path('app_forgot_password_request') }}" class="underline underline-offset-2">refaites une demande</a>.</p>
+</section>
+{% endblock %}
