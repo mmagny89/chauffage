@@ -6,11 +6,13 @@ namespace App\Recommendation;
 
 use App\Calculation\DeltaCalculator;
 use App\Calculation\DeltaModelFitter;
+use App\Calculation\HeatingDays;
 use App\Entity\Household;
 use App\Entity\Place;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
 use App\Forecast\ForecastService;
+use App\Repository\HeatingStartRepository;
 use App\Repository\ReadingRepository;
 
 /**
@@ -21,6 +23,7 @@ final readonly class RecommendationService
     public function __construct(
         private ForecastService $forecasts,
         private ReadingRepository $readings,
+        private HeatingStartRepository $heatingStarts,
         private DeltaCalculator $calculator,
         private DeltaModelFitter $fitter,
         private RecommendationEngine $engine,
@@ -72,7 +75,12 @@ final readonly class RecommendationService
     {
         $readings = $this->readings->findByHousehold($household);
 
-        return new Analysis($this->calculator->calculate($readings), $this->fitter->fit($readings), $this->fitter->fitPlaces($readings));
+        $placesByDay = [];
+        foreach ($this->heatingStarts->findByHousehold($household) as $start) {
+            $placesByDay[$start->getStartedAt()->format('Y-m-d')][] = mb_strtolower($start->getPlace()->getName());
+        }
+
+        return new Analysis($this->calculator->calculate($readings), $this->fitter->fit($readings), $this->fitter->fitPlaces($readings), new HeatingDays($placesByDay));
     }
 
     /**

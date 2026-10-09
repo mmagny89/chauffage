@@ -1,8 +1,9 @@
-{# Phrase de synthèse d'un créneau. #}
+{# Résumé d'un créneau, en une ligne : l'action, puis la température extérieure prévue. #}
+{% import 'partials/_icon.html.twig' as ui %}
 {% if item.action.value == 'heat' %}
-    <strong class="text-amber-800">Attention, les températures sont de {{ item.outdoor|number_format(1, ',') }} °C : il faut mettre le chauffage à {{ item.setpoint|number_format(1, ',') }} °C.</strong>
+    <span class="inline-flex flex-wrap items-center gap-x-1.5 text-amber-800">{{ ui.icon('flame', 'size-4') }}<strong>Chauffer{% if not item.heatingOn %} à {{ item.setpoint|number_format(1, ',') }} °C{% endif %}</strong> <span class="text-slate-600">· {{ item.outdoor|number_format(1, ',') }} °C dehors</span></span>
 {% elseif item.action.value == 'cut' %}
-    <strong class="text-emerald-800">Les températures ({{ item.outdoor|number_format(1, ',') }} °C) permettent de couper le chauffage.</strong>
+    <span class="inline-flex flex-wrap items-center gap-x-1.5 text-emerald-800">{{ ui.icon('power', 'size-4') }}<strong>Couper</strong> <span class="text-slate-600">· {{ item.outdoor|number_format(1, ',') }} °C dehors</span></span>
 {% else %}
-    <span class="text-slate-600">Pas assez d’éléments pour conclure.</span>
+    <span class="inline-flex items-center gap-1.5 text-slate-600">{{ ui.icon('help', 'size-4') }}Pas de recommandation</span>
 {% endif %}

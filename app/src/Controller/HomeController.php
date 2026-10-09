@@ -9,6 +9,9 @@ use App\Forecast\ForecastUnavailableException;
 use App\Forecast\HouseholdNotLocatedException;
 use App\Recommendation\RecommendationEngine;
 use App\Recommendation\RecommendationService;
+use App\Recommendation\SlotRecommendation;
+use App\Recommendation\UpcomingSlot;
+use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
 use App\Service\Calibration;
 use App\Service\DateLabels;
@@ -30,6 +33,7 @@ final class HomeController extends AbstractController
         RecommendationService $recommendations,
         RecommendationEngine $engine,
         ReadingRepository $readings,
+        PlaceRepository $placeRepository,
         DateLabels $labels,
         ClockInterface $clock,
         #[CurrentUser] User $user,
@@ -41,13 +45,20 @@ final class HomeController extends AbstractController
 
         // Le prochain créneau : une panne de prévisions ne doit pas priver l'accueil du reste.
         $upcoming = [];
+        $rooms = [];
         if ($hasReadings) {
             try {
                 $now = new \DateTimeImmutable($clock->now()->setTimezone($timezone)->format('Y-m-d H:i:s'));
-                foreach ($engine->upcoming($recommendations->forHousehold($household, $analysis), $now, self::UPCOMING) as $slot) {
-                    $upcoming[] = [
-                        'label' => $slot->recommendation->slot->label().' · '.$labels->shortDay($slot->date, $household->getTimezone()),
-                        'item' => $slot->recommendation,
+                // Dès qu'une pièce a des températures visées propres, toutes les pièces ont leur recommandation.
+                $tracked = $placeRepository->findForRecommendations($household);
+                $set = $recommendations->forHouseholdAndPlaces($household, $tracked, $analysis);
+                $timezoneName = $household->getTimezone();
+                $upcoming = $this->entries($engine->upcoming($set->household, $now, self::UPCOMING, $analysis->heating), $labels, $timezoneName);
+                foreach ($tracked as $place) {
+                    $rooms[] = [
+                        'place' => $place,
+                        'hasReadings' => $analysis->hasReadingsFor($place->getName()),
+                        'slots' => $this->entries($engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING, $analysis->heating, $place->getName()), $labels, $timezoneName),
                     ];
                 }
             } catch (HouseholdNotLocatedException|ForecastUnavailableException) {
@@ -61,6 +72,23 @@ final class HomeController extends AbstractController
             'daysRequired' => Calibration::DAYS_REQUIRED,
             'hasReadings' => $hasReadings,
             'upcoming' => $upcoming,
+            'rooms' => $rooms,
         ]);
+    }
+
+    /**
+     * @param list<UpcomingSlot> $slots
+     *
+     * @return list<array{label: string, item: SlotRecommendation}>
+     */
+    private function entries(array $slots, DateLabels $labels, string $timezone): array
+    {
+        return array_map(
+            static fn (UpcomingSlot $slot): array => [
+                'label' => $slot->recommendation->slot->label().' · '.$labels->shortDay($slot->date, $timezone),
+                'item' => $slot->recommendation,
+            ],
+            $slots,
+        );
     }
 }

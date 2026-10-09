@@ -1,14 +1,11 @@
+{% import 'partials/_icon.html.twig' as ui %}
 {% if item.action.value == 'unknown' %}
-    <span aria-label="pas de recommandation">—</span>
+    <span aria-label="pas de recommandation" class="inline-flex items-center gap-1 text-slate-500">{{ ui.icon('help') }}<span aria-hidden="true">—</span></span>
 {% else %}
-    {% if item.action.value == 'heat' %}
-        <span class="inline-block rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">Chauffer à {{ item.setpoint|number_format(1, ',') }} °C</span>
-    {% else %}
-        <span class="inline-block rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">Couper</span>
-    {% endif %}
-    <span class="mt-1 block text-xs text-slate-600">dehors {{ item.outdoor|number_format(1, ',') }} °C</span>
-    <span class="block text-xs text-slate-600">dedans ≈ {{ item.estimatedIndoor|round|number_format(0, ',') }} °C</span>
-    <span class="block text-xs text-slate-500">visé {{ item.target|number_format(1, ',') }} °C</span>
-    {% if item.extrapolated %}<span class="block text-xs text-amber-700" title="La prévision sort des températures extérieures relevées : l’estimation est moins fiable. Faites des relevés à ces températures.">hors plage mesurée</span>{% endif %}
+    {% include 'recommendation/_badge.html.twig' %}
+    <span class="mt-1 flex items-center gap-1 text-xs text-slate-600">{{ ui.icon('sun', 'size-3.5') }}dehors {{ item.outdoor|number_format(1, ',') }} °C</span>
+    <span class="flex items-center gap-1 text-xs text-slate-600">{{ ui.icon('home', 'size-3.5') }}dedans ≈ {{ item.estimatedIndoor|round|number_format(0, ',') }} °C</span>
+    <span class="flex items-center gap-1 text-xs text-slate-500">{{ ui.icon('target', 'size-3.5') }}visé {{ item.target|number_format(1, ',') }} °C</span>
+    {% if item.extrapolated %}<span class="flex items-center gap-1 text-xs text-amber-700" title="La prévision sort des températures extérieures relevées : l’estimation est moins fiable. Faites des relevés à ces températures.">{{ ui.icon('alert', 'size-3.5') }}hors plage mesurée</span>{% endif %}
     {% if item.deltaIsFallback %}<span class="block text-xs text-slate-500" title="Aucun relevé sur ce créneau : modèle de tous les créneaux">écart général</span>{% endif %}
 {% endif %}

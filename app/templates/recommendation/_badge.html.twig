@@ -1,0 +1,9 @@
+{# Pastille « Chauffer à X °C » / « Couper » d'un créneau ; « Chauffer » seul si le chauffage est déjà allumé aujourd'hui (liste « À venir »). #}
+{% import 'partials/_icon.html.twig' as ui %}
+{% if item.action.value == 'heat' %}
+    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">{{ ui.icon('flame') }}Chauffer{% if not item.heatingOn %} à {{ item.setpoint|number_format(1, ',') }} °C{% endif %}</span>
+{% elseif item.action.value == 'cut' %}
+    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">{{ ui.icon('power') }}Couper</span>
+{% else %}
+    <span class="inline-flex items-center gap-1 text-xs text-slate-500">{{ ui.icon('help') }}Pas de recommandation</span>
+{% endif %}

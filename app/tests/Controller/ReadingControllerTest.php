@@ -74,7 +74,7 @@ final class ReadingControllerTest extends WebTestCase
 
         $crawler = $this->client->request('GET', '/releves');
 
-        $labels = $crawler->filter('fieldset label')->each(static fn ($label) => $label->text());
+        $labels = $crawler->filter('#releve-interieur label')->each(static fn ($label) => $label->text());
         self::assertSame(['Cave', 'Écurie', 'Salon'], $labels, 'Un champ par lieu, par ordre alphabétique.');
         self::assertCount(3, $crawler->filter('input[name^="reading_session[indoor]"][type=number]'));
         self::assertSelectorExists('input[name="reading_session[outdoor]"]');
@@ -125,12 +125,12 @@ final class ReadingControllerTest extends WebTestCase
         $this->createPlaces($user, ['Salon']);
         $this->client->loginUser($user);
         $this->client->request('GET', '/releves');
-        self::assertCount(1, $this->client->getCrawler()->filter('fieldset input[type=number]'));
+        self::assertCount(1, $this->client->getCrawler()->filter('#releve-interieur input[type=number]'));
 
         $this->createPlaces($user, ['Chambre parentale']);
 
         $this->client->request('GET', '/releves');
-        self::assertCount(2, $this->client->getCrawler()->filter('fieldset input[type=number]'));
+        self::assertCount(2, $this->client->getCrawler()->filter('#releve-interieur input[type=number]'));
     }
 
     public function testExistingReadingAtTheSameInstantRejectsTheWholeSession(): void

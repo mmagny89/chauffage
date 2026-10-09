@@ -296,6 +296,7 @@ final class PageQualityTest extends WebTestCase
 
         foreach (['Salon', 'Cave'] as $name) {
             $place = new Place($household, $name);
+            $place->setTarget(\App\Enum\DaySlot::Morning, 19.0);
             $em->persist($place);
             foreach ([[1, 2.0], [2, 5.0], [3, 8.0], [4, 11.0], [5, 14.0]] as [$day, $outdoor]) {
                 foreach (['03:00', '08:00', '14:00', '20:00'] as $time) {

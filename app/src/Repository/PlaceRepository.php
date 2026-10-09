@@ -34,6 +34,19 @@ class PlaceRepository extends ServiceEntityRepository
     }
 
     /**
+     * Les lieux qui ont leur recommandation : tous ceux du foyer dès qu'au moins un a une température
+     * visée propre, aucun sinon (le foyer entier suffit alors).
+     *
+     * @return list<Place>
+     */
+    public function findForRecommendations(Household $household): array
+    {
+        $places = $this->findByHousehold($household);
+
+        return array_any($places, static fn (Place $place): bool => $place->hasOwnTargets()) ? $places : [];
+    }
+
+    /**
      * Lieux du foyer, triés par nom (ordre alphabétique français).
      *
      * @return list<Place>

@@ -3,18 +3,21 @@
 {% block title %}Recommandations{% if selected %} · {{ selected.name }}{% endif %}{% endblock %}
 
 {% block body %}
-<h1 class="mb-2 text-2xl font-semibold">Recommandations de chauffage</h1>
-<p class="mb-6 text-slate-700">Pour chaque moment de la journée : la température extérieure prévue, plus l’écart mesuré chez vous, donne la température intérieure estimée. Si elle est sous votre température visée, il faut chauffer ; sinon, le chauffage peut être coupé.</p>
+{% import 'partials/_icon.html.twig' as ui %}
+<header class="mb-6">
+    <h1 class="mb-2 flex items-center gap-2 text-2xl font-semibold"><span class="text-amber-600">{{ ui.icon('flame', 'size-7') }}</span>Recommandations de chauffage</h1>
+    <p class="max-w-3xl text-slate-700">Pour chaque moment de la journée : température extérieure prévue + écart mesuré chez vous = température intérieure estimée. Sous votre température visée, on chauffe ; sinon, on coupe.</p>
+</header>
 
 {% if not located or not hasReadings %}
     <div class="rounded-lg border border-slate-200 bg-white p-6">
         <p class="mb-3 font-medium text-slate-800">Il manque deux choses pour calculer :</p>
         <ul class="mb-4 list-inside list-disc space-y-1 text-slate-700">
             <li>
-                {% if located %}<span aria-hidden="true">✓</span> Ville renseignée : {{ household.city }}{% else %}Votre ville, pour récupérer les prévisions — <a href="{{ path('app_settings') }}" class="underline underline-offset-2">la choisir</a>{% endif %}
+                {% if located %}<span class="inline-flex align-text-bottom text-emerald-700">{{ ui.icon('check') }}</span> Ville renseignée : {{ household.city }}{% else %}Votre ville, pour récupérer les prévisions — <a href="{{ path('app_settings') }}" class="underline underline-offset-2">la choisir</a>{% endif %}
             </li>
             <li>
-                {% if hasReadings %}<span aria-hidden="true">✓</span> Relevés de température saisis{% else %}Des relevés de température, pour mesurer l’écart intérieur-extérieur — <a href="{{ path('app_readings') }}" class="underline underline-offset-2">les saisir</a>{% endif %}
+                {% if hasReadings %}<span class="inline-flex align-text-bottom text-emerald-700">{{ ui.icon('check') }}</span> Relevés de température saisis{% else %}Des relevés de température, pour mesurer l’écart intérieur-extérieur — <a href="{{ path('app_readings') }}" class="underline underline-offset-2">les saisir</a>{% endif %}
             </li>
         </ul>
     </div>
@@ -22,19 +25,19 @@
     <p role="alert" class="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">{{ error }}</p>
 {% else %}
     {% if daysDone < daysRequired %}
-        <div role="status" class="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Recommandations provisoires : {{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} de relevés sur {{ daysRequired }} recommandés.
-            <a href="{{ path('app_readings') }}" class="underline underline-offset-2">Ajouter des relevés</a>
+        <div role="status" class="mb-6 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ ui.icon('alert', 'mt-0.5 size-4') }}<p>Recommandations provisoires : {{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} de relevés sur {{ daysRequired }} recommandés.
+            <a href="{{ path('app_readings') }}" class="underline underline-offset-2">Ajouter des relevés</a></p>
         </div>
     {% endif %}
 
-    {% if places|length >= 2 %}
-        <nav aria-label="Vue des recommandations" class="mb-6 flex flex-wrap gap-2">
-            {% set tab = 'inline-flex min-h-11 items-center rounded-full border px-4 py-1 text-sm font-medium focus:outline-2 focus:outline-offset-2 focus:outline-slate-900' %}
-            <a href="{{ path('app_recommendations') }}" class="{{ tab }} {{ selected is null ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-500 bg-white text-slate-800 hover:bg-slate-100' }}"{% if selected is null %} aria-current="page"{% endif %}>Tout le foyer</a>
+    {% if places is not empty %}
+        <nav aria-label="Vue des recommandations" class="mb-6 flex flex-wrap gap-2 rounded-xl bg-slate-100 p-1.5">
+            {% set tab = 'inline-flex min-h-11 items-center rounded-lg px-4 py-1 text-sm font-medium focus:outline-2 focus:outline-offset-2 focus:outline-slate-900' %}
+            <a href="{{ path('app_recommendations') }}" class="{{ tab }} {{ selected is null ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-800 hover:bg-white' }}"{% if selected is null %} aria-current="page"{% endif %}>{{ ui.icon('home', 'size-4 mr-1.5') }}Tout le foyer</a>
             {% for place in places %}
                 {% set current = selected is not null and selected.id == place.id %}
-                <a href="{{ path('app_recommendations', {piece: place.id}) }}" class="{{ tab }} {{ current ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-500 bg-white text-slate-800 hover:bg-slate-100' }}"{% if current %} aria-current="page"{% endif %}>{{ place.name }}</a>
+                <a href="{{ path('app_recommendations', {piece: place.id}) }}" class="{{ tab }} {{ current ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-800 hover:bg-white' }}"{% if current %} aria-current="page"{% endif %}>{{ ui.icon(place_icon(place.name), 'size-4 mr-1.5') }}{{ place.name }}</a>
             {% endfor %}
         </nav>
     {% endif %}
@@ -48,11 +51,19 @@
 
     <section aria-labelledby="a-venir" class="mb-8">
         <h2 id="a-venir" class="mb-3 text-lg font-semibold">À venir{% if selected %} — {{ selected.name }}{% endif %}</h2>
-        <ul class="grid gap-3 sm:grid-cols-2">
+        <ul class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {% for entry in upcoming %}
-                <li class="rounded-lg border border-slate-200 bg-white p-4">
-                    <p class="mb-1 text-sm font-semibold text-slate-800">{{ entry.label }}</p>
+                {% set action = entry.item.action.value %}
+                <li class="rounded-xl border border-t-4 border-slate-200 bg-white p-4 {{ action == 'heat' ? 'border-t-amber-400' : (action == 'cut' ? 'border-t-emerald-400' : 'border-t-slate-300') }}">
+                    <p class="mb-3 text-sm font-semibold leading-tight text-slate-800">{{ entry.label|split(' · ')|first }}<span class="sr-only"> · </span><span class="block text-xs font-normal text-slate-500">{{ entry.label|split(' · ')|last }}</span></p>
                     <p class="text-sm">{% include 'recommendation/_summary.html.twig' with {item: entry.item} %}</p>
+                    {% if action != 'unknown' %}
+                        <p class="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-slate-100 pt-2 text-xs text-slate-600">
+                            <span class="inline-flex items-center gap-1">{{ ui.icon('home', 'size-3.5') }}dedans ≈ {{ entry.item.estimatedIndoor|round|number_format(0, ',') }} °C</span>
+                            <span class="inline-flex items-center gap-1">{{ ui.icon('target', 'size-3.5') }}visé {{ entry.item.target|number_format(1, ',') }} °C</span>
+                            {% if entry.item.extrapolated %}<span class="inline-flex items-center gap-1 text-amber-700">{{ ui.icon('alert', 'size-3.5') }}hors plage mesurée</span>{% endif %}
+                        </p>
+                    {% endif %}
                 </li>
             {% endfor %}
         </ul>
@@ -60,7 +71,7 @@
 
     {% if placeRows %}
         <section aria-labelledby="par-piece" class="mb-8">
-            <h2 id="par-piece" class="mb-3 text-lg font-semibold">Pièce par pièce</h2>
+            <h2 id="par-piece" class="mb-3 text-lg font-semibold">Pièce par pièce, prochains créneaux</h2>
             <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
                 <table class="w-full text-left text-sm">
                     <caption class="sr-only">Recommandation de chauffage de chaque pièce pour les prochains moments de la journée</caption>
@@ -76,7 +87,7 @@
                         {% for row in placeRows %}
                             <tr class="border-t border-slate-100">
                                 <th scope="row" class="px-4 py-3 align-top font-medium">
-                                    <a href="{{ path('app_recommendations', {piece: row.place.id}) }}" class="underline underline-offset-2">{{ row.place.name }}</a>
+                                    <a href="{{ path('app_recommendations', {piece: row.place.id}) }}" class="inline-flex items-center gap-2 underline underline-offset-2">{{ ui.icon(place_icon(row.place.name), 'size-5') }}{{ row.place.name }}</a>
                                     {% if not row.hasReadings %}<span class="block text-xs font-normal text-slate-500">estimation du foyer</span>{% endif %}
                                 </th>
                                 {% for item in row.cells %}
@@ -87,12 +98,12 @@
                     </tbody>
                 </table>
             </div>
-            <p class="mt-2 text-sm text-slate-600">Chaque pièce a son propre écart, mesuré sur ses relevés ; les températures visées sont celles du foyer. « * » : prévision hors des températures relevées, estimation moins fiable. Un nom de pièce ouvre ses quinze jours.</p>
+            <p class="mt-2 text-sm text-slate-600">Seules les pièces dont vous avez saisi des températures visées dans les réglages figurent ici. Chaque pièce a son propre écart, mesuré sur ses relevés ; là où elle n’a pas de température visée pour un moment, celle du foyer s’applique. « * » : prévision hors des températures relevées, estimation moins fiable. Un nom de pièce ouvre ses quinze jours.</p>
         </section>
     {% endif %}
 
     <section aria-labelledby="quinze-jours">
-        <h2 id="quinze-jours" class="mb-3 text-lg font-semibold">Les {{ rows|length }} prochains jours{% if selected %} — {{ selected.name }}{% endif %}</h2>
+        <h2 id="quinze-jours" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('cloud', 'size-5') }}Les {{ rows|length }} prochains jours{% if selected %} — {{ selected.name }}{% endif %}</h2>
         <div class="relative hidden overflow-x-auto rounded-lg border border-slate-200 bg-white md:block">
             <table class="w-full text-left text-sm">
                 <caption class="sr-only">Recommandation de chauffage par jour et par moment de la journée, avec la température extérieure prévue et l’intérieure estimée</caption>
@@ -109,7 +120,8 @@
                         <tr class="border-t border-slate-100 {{ row.distant ? 'bg-slate-50 text-slate-500' : '' }}">
                             <th scope="row" class="whitespace-nowrap px-4 py-3 align-top font-medium">{{ row.label }}</th>
                             {% for slot in slots %}
-                                <td class="px-4 py-3 align-top">{% include 'recommendation/_cell.html.twig' with {item: row.day.forSlot(slot)} %}</td>
+                                {% set cell = row.day.forSlot(slot) %}
+                                <td class="px-4 py-3 align-top {{ row.distant ? '' : (cell.action.value == 'heat' ? 'bg-amber-50/70' : (cell.action.value == 'cut' ? 'bg-emerald-50/60' : '')) }}">{% include 'recommendation/_cell.html.twig' with {item: cell} %}</td>
                             {% endfor %}
                         </tr>
                     {% endfor %}
@@ -120,20 +132,28 @@
         <div class="space-y-3 md:hidden">
             {% for row in rows %}
                 <article aria-labelledby="jour-{{ loop.index }}" class="overflow-hidden rounded-lg border border-slate-200 {{ row.distant ? 'bg-slate-50 text-slate-500' : 'bg-white' }}">
-                    <h3 id="jour-{{ loop.index }}" class="border-b border-slate-100 px-4 py-2 text-sm font-semibold">{{ row.label }}</h3>
+                    <h3 id="jour-{{ loop.index }}" class="border-b border-slate-100 bg-slate-50 px-4 py-2 text-sm font-semibold">{{ row.label }}</h3>
                     <dl class="divide-y divide-slate-100">
                         {% for slot in slots %}
-                            <div class="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 px-4 py-3">
+                            {% set cell = row.day.forSlot(slot) %}
+                            <div class="grid grid-cols-[6rem_minmax(0,1fr)] gap-3 px-4 py-3 {{ row.distant ? '' : (cell.action.value == 'heat' ? 'bg-amber-50/70' : (cell.action.value == 'cut' ? 'bg-emerald-50/60' : '')) }}">
                                 <dt class="text-sm font-medium">{{ slot.label }}</dt>
-                                <dd>{% include 'recommendation/_cell.html.twig' with {item: row.day.forSlot(slot)} %}</dd>
+                                <dd>{% include 'recommendation/_cell.html.twig' with {item: cell} %}</dd>
                             </div>
                         {% endfor %}
                     </dl>
                 </article>
             {% endfor %}
         </div>
-        <p class="mt-3 text-sm text-slate-600">Lignes grisées : au-delà de 7 jours, les prévisions sont peu fiables. La nuit d’un jour va de 22 h ce jour-là à 6 h le lendemain. « Écart général » : aucun relevé sur ce créneau, le modèle de tous les créneaux est utilisé. « Hors plage mesurée » : la prévision sort des températures extérieures de vos relevés, l’estimation est moins fiable. <a href="{{ path('app_deltas') }}#modele" class="underline underline-offset-2">Voir le modèle utilisé</a>.</p>
-        <p class="mt-1 text-sm text-slate-600">La température visée dépend du jour de la semaine et du moment de la journée : <a href="{{ path('app_settings') }}" class="underline underline-offset-2">la modifier dans les réglages</a>.</p>
+        <aside aria-labelledby="legende" class="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+            <h3 id="legende" class="mb-2 font-semibold text-slate-900">Comment lire ces tableaux</h3>
+            <ul class="grid gap-x-6 gap-y-2 md:grid-cols-2">
+                <li class="flex items-start gap-2">{{ ui.icon('alert', 'mt-0.5 size-4 text-amber-700') }}<span><strong>Hors plage mesurée</strong> : la prévision sort des températures de vos relevés, l’estimation est moins fiable.</span></li>
+                <li class="flex items-start gap-2">{{ ui.icon('gap', 'mt-0.5 size-4') }}<span><strong>Écart général</strong> : aucun relevé sur ce créneau, le modèle de tous les créneaux est utilisé. <a href="{{ path('app_deltas') }}#modele" class="underline underline-offset-2">Voir le modèle</a>.</span></li>
+                <li class="flex items-start gap-2">{{ ui.icon('cloud', 'mt-0.5 size-4') }}<span>Lignes grisées : au-delà de 7 jours, les prévisions sont peu fiables.</span></li>
+                <li class="flex items-start gap-2">{{ ui.icon('target', 'mt-0.5 size-4') }}<span>La température visée dépend du jour et du moment de la journée : <a href="{{ path('app_settings') }}" class="underline underline-offset-2">la modifier dans les réglages</a>. La nuit d’un jour va de 22 h ce jour-là à 6 h le lendemain.</span></li>
+            </ul>
+        </aside>
         <p class="mt-2 text-xs text-slate-500"><a href="https://open-meteo.com/" class="underline underline-offset-2">Weather data by Open-Meteo.com</a> (licence <a href="https://creativecommons.org/licenses/by/4.0/" class="underline underline-offset-2">CC BY 4.0</a>).</p>
     </section>
 {% endif %}

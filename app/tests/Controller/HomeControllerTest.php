@@ -8,6 +8,7 @@ use App\Entity\Household;
 use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
+use App\Enum\DaySlot;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
@@ -69,6 +70,34 @@ final class HomeControllerTest extends WebTestCase
         self::assertCount(2, $crawler->filter('#a-venir + ul li'), 'Les deux prochains créneaux.');
         self::assertStringContainsString('Après-midi · ven. 9 oct.', $crawler->filter('#a-venir + ul li')->first()->text());
         self::assertSelectorExists('main a[href="/recommandations"]');
+    }
+
+    public function testRoomsAppearOnTheDashboardOnlyWhenTheyHaveTheirOwnTargets(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->addReadings($user, ['2026-10-07', '2026-10-08']);
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/');
+        self::assertSelectorNotExists('#par-piece', 'Aucune température propre : pas de recommandation par pièce.');
+        self::assertSelectorTextContains('#a-venir', 'À venir');
+
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
+        $salon = $this->em->getRepository(Place::class)->findOneBy(['household' => $household, 'name' => 'Salon']) ?? throw new \LogicException('Salon introuvable.');
+        $cave = new Place($household, 'Cave');
+        $this->em->persist($cave);
+        $salon->setTarget(DaySlot::Afternoon, 21.0);
+        $this->em->flush();
+
+        $crawler = $this->client->request('GET', '/');
+
+        $rooms = $crawler->filter('#par-piece + ul > li');
+        self::assertCount(2, $rooms, 'Le salon a une température propre : la cave figure aussi.');
+        self::assertStringContainsString('Cave', $rooms->first()->filter('h3')->text());
+        self::assertStringContainsString('Salon', $rooms->eq(1)->filter('h3')->text());
+        self::assertCount(2, $rooms->first()->filter('ul li'), 'Les deux prochains créneaux.');
+        self::assertSelectorExists('#par-piece + ul h3 svg[aria-hidden=true]');
+        self::assertSelectorTextContains('#a-venir', 'Tout le foyer');
     }
 
     public function testCalibratedHouseholdIsToldSo(): void

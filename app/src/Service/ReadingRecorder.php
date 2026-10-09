@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Service;
 
 use App\Dto\ReadingSessionInput;
+use App\Entity\HeatingStart;
 use App\Entity\Household;
 use App\Entity\Place;
 use App\Entity\Reading;
 use App\Exception\ReadingsRejectedException;
 use App\Form\ReadingSessionType;
+use App\Repository\HeatingStartRepository;
 use App\Repository\ReadingRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
@@ -18,11 +20,16 @@ use Psr\Clock\ClockInterface;
  * Enregistre un relevé : un enregistrement par lieu déclaré, à la même heure, avec la
  * même température extérieure. Refuse l'avenir et les doublons, et n'écrit rien si
  * une seule ligne est refusée.
+ *
+ * Pour chaque lieu où une consigne est indiquée, l'allumage du chauffage est noté à la même heure,
+ * avec la température du relevé (prise chauffage éteint, juste avant l'allumage) et la même
+ * température extérieure.
  */
 final readonly class ReadingRecorder
 {
     public function __construct(
         private ReadingRepository $readings,
+        private HeatingStartRepository $heatingStarts,
         private EntityManagerInterface $entityManager,
         private ClockInterface $clock,
     ) {
@@ -31,11 +38,10 @@ final readonly class ReadingRecorder
     /**
      * @param list<Place> $places lieux déclarés du foyer : tous doivent être renseignés
      *
-     * @return int nombre de relevés enregistrés
-     *
-     * @throws ReadingsRejectedException motifs indexés par nom de champ (« time » ou « p<id> »)
+     * @throws ReadingsRejectedException motifs indexés par nom de champ (« time », « p<id> » pour une
+     *                                   température, « h<id> » pour un allumage)
      */
-    public function record(Household $household, ReadingSessionInput $input, array $places): int
+    public function record(Household $household, ReadingSessionInput $input, array $places): RecordedSession
     {
         \assert(null !== $input->date && null !== $input->time && null !== $input->outdoor);
 
@@ -49,6 +55,7 @@ final readonly class ReadingRecorder
 
         $reasons = [];
         $pending = [];
+        $pendingStarts = [];
         foreach ($places as $place) {
             $field = ReadingSessionType::fieldName($place);
             $indoor = $input->indoor[$field] ?? null;
@@ -59,17 +66,27 @@ final readonly class ReadingRecorder
                 continue;
             }
             $pending[] = new Reading($place, $measuredAt, $input->outdoor, $indoor);
+
+            $setpoint = $input->setpoints[$field] ?? null;
+            if (null === $setpoint) {
+                continue;
+            }
+            if ($this->heatingStarts->existsFor($place, $measuredAt)) {
+                $reasons['h'.$place->getId()] = 'Un allumage est déjà noté pour ce lieu à cette heure.';
+                continue;
+            }
+            $pendingStarts[] = new HeatingStart($place, $measuredAt, $setpoint, $indoor, $input->outdoor);
         }
 
         if ([] !== $reasons) {
             throw new ReadingsRejectedException($reasons);
         }
 
-        foreach ($pending as $reading) {
-            $this->entityManager->persist($reading);
+        foreach ([...$pending, ...$pendingStarts] as $entity) {
+            $this->entityManager->persist($entity);
         }
         $this->entityManager->flush();
 
-        return \count($pending);
+        return new RecordedSession(\count($pending), array_map(static fn (HeatingStart $start): string => $start->getPlace()->getName(), $pendingStarts));
     }
 }
