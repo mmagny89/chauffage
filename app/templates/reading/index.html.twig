@@ -4,7 +4,12 @@
 
 {% block body %}
 <h1 class="mb-2 text-2xl font-semibold">Relevés de température</h1>
-<p class="mb-6 text-slate-700">Notez, pour chaque lieu, la température extérieure et la température intérieure à une même heure. L’outil en déduira l’écart moyen de chaque lieu.</p>
+<p class="mb-4 text-slate-700">Notez, pour chaque lieu, la température extérieure et la température intérieure à une même heure. L’outil en déduira l’écart moyen de chaque lieu.</p>
+
+<aside role="note" aria-labelledby="sans-chauffage" class="mb-6 rounded-lg border border-sky-300 bg-sky-50 p-4 text-sm text-sky-950">
+    <h2 id="sans-chauffage" class="mb-1 font-semibold">Relevez les températures chauffage éteint</h2>
+    <p>L’outil mesure ce que devient chaque pièce <strong>sans chauffage</strong> par rapport au dehors. Un relevé fait pendant que le chauffage fonctionne fausserait l’écart et donnerait des recommandations trop optimistes. Éteignez-le plusieurs heures avant, et évitez de mesurer au soleil ou près d’une source de chaleur.</p>
+</aside>
 
 <section aria-labelledby="progression" class="mb-8 rounded-lg border border-slate-200 bg-white p-4">
     <h2 id="progression" class="mb-2 text-sm font-semibold text-slate-800">Calibrage</h2>

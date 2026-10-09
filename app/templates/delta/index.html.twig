@@ -4,7 +4,7 @@
 
 {% block body %}
 <h1 class="mb-2 text-2xl font-semibold">Écarts de température</h1>
-<p class="mb-6 text-slate-700">Écart moyen entre la température intérieure et la température extérieure : plus il est élevé, mieux la pièce garde la chaleur. Il sert ensuite à estimer la température intérieure à partir des prévisions.</p>
+<p class="mb-6 text-slate-700">Écart moyen entre la température intérieure et la température extérieure : plus il est élevé, mieux la pièce garde la chaleur. Il sert ensuite à estimer la température intérieure à partir des prévisions. Il n’est juste que si les relevés ont été faits <strong>chauffage éteint</strong>.</p>
 
 {% if report.empty %}
     <div class="rounded-lg border border-slate-200 bg-white p-6">

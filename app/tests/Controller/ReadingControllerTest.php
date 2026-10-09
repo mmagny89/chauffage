@@ -35,6 +35,16 @@ final class ReadingControllerTest extends WebTestCase
         parent::tearDown();
     }
 
+    public function testTellsToTakeReadingsWithTheHeatingOff(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->client->request('GET', '/releves');
+
+        self::assertSelectorTextContains('aside[role=note] h2', 'chauffage éteint');
+        self::assertSelectorTextContains('aside[role=note]', 'sans chauffage');
+    }
+
     public function testAnonymousVisitorIsSentToLogin(): void
     {
         $this->client->request('GET', '/releves');
