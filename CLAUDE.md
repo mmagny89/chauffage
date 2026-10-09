@@ -68,6 +68,9 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 
 - **`/` est public** : un visiteur non connecté y voit la page de présentation (`home/landing.html.twig`), un
   utilisateur connecté son tableau de bord. Toutes les autres pages exigent une connexion.
+- **Mon compte** (`/compte`) : changement de mot de passe (mot de passe actuel exigé, `PasswordPolicy`, limiteur
+  `password_change` 5 / 15 min par utilisateur). Le hachage fait partie de l'identité en session : le contrôleur
+  reconnecte l'utilisateur (`Security::login`) après le changement. Accessible pendant la mise en route.
 - **Un compte = un foyer** (`Household`, créé à l'inscription avec ses 28 températures visées).
 - **Mise en route obligatoire** : tant que `Household::isSetUp()` est faux, `SetupRequiredSubscriber`
   redirige toute page autre que les réglages (et la déconnexion) vers `/reglages`, qui s'affiche alors
