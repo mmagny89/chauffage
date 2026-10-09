@@ -40,6 +40,10 @@ rend une page échoue sur un message qui ne mentionne jamais Tailwind.
 - **Aucune ressource externe** dans le runtime : pas de CDN, pas de police distante.
   Les appels à des services tiers (Open-Meteo) se font côté serveur, jamais depuis
   le navigateur.
+- **Branches** : `feat/…` ou `fix/…`, fusionnées dans **`develop`** par demande de fusion
+  (Dependabot y ouvre aussi les siennes, et la porte qualité les contrôle). `develop` part
+  en pré-production ; elle est fusionnée dans `main` pour livrer en production. `main` est
+  toujours déployable : ce qui y entre part en production.
 - **Un test accompagne tout changement de comportement** : requête HTTP pour un
   contrôleur, appel de service pour un service.
 

@@ -59,6 +59,8 @@ Standards de code : skills `symfony-coding-standards`, `phpstan-analysis`,
 - **Aucune ressource externe dans le navigateur** (pas de CDN, pas de police distante). Les
   appels à des tiers (Open-Meteo) se font côté serveur.
 - Un test accompagne tout changement de comportement.
+- **Branches** : `feat/*` et `fix/*` fusionnées dans `develop` (pré-production), puis `develop`
+  dans `main` (production). Dependabot vise `develop`. Ne pas committer directement sur `main`.
 
 ## Règles métier
 

@@ -7,6 +7,10 @@ updates:
   # (voir .claude/rules/stack-conventions.md).
   - package-ecosystem: composer
     directory: /app
+    # Les PR visent develop, comme tout le travail : main ne reçoit que des fusions de
+    # develop. Dependabot lit ce fichier sur la branche par défaut : il doit donc aussi
+    # être présent sur main pour prendre effet.
+    target-branch: develop
     schedule:
       interval: weekly
       day: monday
@@ -28,6 +32,7 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    target-branch: develop
     schedule:
       interval: monthly
     labels: [dependances]
