@@ -32,6 +32,9 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
   de la semaine et par moment de la journée.
 - **Prévisions** : température extérieure prévue sur quinze jours, par moment de la
   journée (Open-Meteo, CC BY 4.0).
+- **Recommandations par pièce** : en plus de la vue du foyer, un onglet par pièce déclarée et un
+  tableau « pièce par pièce » pour les prochains créneaux. Chaque pièce a son propre écart, mesuré
+  sur ses relevés ; une pièce sans relevé reprend l'estimation du foyer, signalée.
 - **Recommandations** : pour chaque jour et chaque créneau, « chauffer à X °C » ou
   « couper », avec la température extérieure prévue et l'intérieure estimée ; les quatre
   prochains créneaux en tête de page ; avertissement pour les prévisions au-delà de sept
