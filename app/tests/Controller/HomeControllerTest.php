@@ -118,6 +118,29 @@ final class HomeControllerTest extends WebTestCase
         self::assertSelectorNotExists('#a-venir');
     }
 
+    public function testShutterAdviceDoesNotNeedReadings(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->client->request('GET', '/');
+
+        // Le double donne un premier jour ensoleillé (lever 7 h 30, coucher 18 h) puis un jour couvert, à 5 °C.
+        self::assertSelectorTextContains('#volets', 'Volets');
+        self::assertSelectorTextContains('#volets + ul li:nth-child(1)', 'Soleil prévu (8 h) : ouvrez à 7 h 30');
+        self::assertSelectorTextContains('#volets + ul li:nth-child(1)', 'coucher du soleil, à 18 h 00');
+        self::assertSelectorTextContains('#volets + ul li:nth-child(2)', 'Peu de soleil à récupérer');
+    }
+
+    public function testAForecastOutageHidesShutterAdviceOnly(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com', latitude: 85.0));
+
+        $this->client->request('GET', '/');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorNotExists('#volets');
+    }
+
     public function testQuickLinksCoverEveryArea(): void
     {
         $this->client->loginUser($this->createUser('a@example.com'));
