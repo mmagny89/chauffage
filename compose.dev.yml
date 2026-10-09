@@ -12,6 +12,14 @@ services:
       # defaut de `watch` couvre tout /app, donc var/cache : chaque ecriture de
       # cache (Twig, conteneur, et phpunit depuis ce meme conteneur) redemarrait
       # les threads PHP, requetes en cours comprises — pages qui tournent en boucle.
+      # Pas de HTTP/3 en developpement. Caddy l'annonce (`alt-svc: h3=":443"`, 30 jours) et
+      # Chrome tente alors du QUIC, en UDP : le relais UDP de Docker sur Mac ne l'achemine pas
+      # de facon fiable, et chaque chargement reste suspendu avant de retomber sur TCP — pages
+      # lentes ou figees, alors que curl (HTTP/2) repond en quelques millisecondes.
+      CADDY_GLOBAL_OPTIONS: |
+        servers {
+          protocols h1 h2
+        }
       FRANKENPHP_WORKER_CONFIG: |
         watch /app/src/**/*.php
         watch /app/config/**/*.php
@@ -23,7 +31,6 @@ services:
     ports:
       - "${HTTP_PORT}:80"
       - "${HTTPS_PORT}:443"
-      - "${HTTP3_PORT}:443/udp"
 
   database:
     ports:

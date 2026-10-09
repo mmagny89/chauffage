@@ -126,6 +126,11 @@ Les pièges du rendu Twig/Stimulus/Turbo sont aussi réunis, avec leurs raisons,
   `Clock::set(new MockClock(...))` fige l'heure ; DAMA isole la base ; Symfony réinitialise les
   gestionnaires de log entre deux requêtes (voir `AuditTrailTest`). Les clients HTTP sont
   remplacés par `FakeGeocoder` et `FakeForecastProvider` : aucun appel réseau.
+- **Pages lentes ou figées dans Chrome alors que `curl` répond** : c'était HTTP/3. Caddy l'annonçait
+  (`alt-svc: h3`, 30 jours), Chrome tentait du QUIC en UDP, que le relais de Docker sur Mac ne
+  route pas de façon fiable. `compose.dev.yml` le désactive (`servers { protocols h1 h2 }`, pas de
+  port UDP publié). Si une page reste figée après un changement de configuration, quitter
+  complètement Chrome et le relancer purge son état QUIC.
 - **Worker figé après un rechargement** : après une rafale de modifications de fichiers (php-cs-fixer,
   composer, éditions en série), le rechargement à chaud peut se bloquer (« force-killing thread on
   reboot timeout » dans les journaux) ; seule `/health`, servie par Caddy, répond encore, donc le
