@@ -96,7 +96,8 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 - **Recommandation par pièce** (`?piece=<id>`, onglets « Tout le foyer » + une pièce chacune, et un
   tableau « Pièce par pièce » pour les quatre prochains créneaux, seulement s'il y a ≥ 2 pièces) :
   mêmes règles, mais avec le modèle d'écart **de la pièce** (`DeltaModelFitter::fitPlaces`, relevés de
-  cette pièce seulement) ; mêmes températures visées que le foyer (pas de cible par pièce). Une pièce
+  cette pièce seulement) ; températures visées du foyer, **remplacées par celles de la pièce** là où elle en a (`PlaceTarget`, par
+  créneau, facultatives, valables tous les jours de la semaine ; vide = suit le foyer). Une pièce
   sans relevé reçoit l'estimation du foyer, signalée. Un identifiant de pièce inconnu ou d'un autre
   foyer est une 404 ; la vue d'ensemble reste la moyenne de tous les relevés, qui peut masquer une
   pièce plus froide que les autres.
@@ -105,7 +106,7 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 
 ## Architecture
 
-- `src/Entity` — `User`, `Household`, `HeatingTarget`, `Place`, `Reading`. Le foyer complète
+- `src/Entity` — `User`, `Household`, `HeatingTarget`, `Place`, `PlaceTarget`, `Reading`. Le foyer complète
   lui-même ses cibles manquantes (`Household::completeTargets`, via `HouseholdProvider`).
 - `src/Calculation`, `src/Forecast`, `src/Recommendation` — calcul pur ; `Geocoding` et
   `Forecast\OpenMeteo*` — clients HTTP derrière une interface (doubles dans `tests/Support`).

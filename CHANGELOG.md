@@ -30,6 +30,8 @@ Première version utilisable de bout en bout, en attente d'être étiquetée.
   variés ; la page des écarts montre la formule et le poids des relevés.
 - **Réglages** : ville du foyer (recherche Open-Meteo) et températures visées par jour
   de la semaine et par moment de la journée.
+- **Températures visées par pièce** : facultatives, par moment de la journée, dans les réglages ; elles
+  remplacent celles du foyer pour cette pièce (une chambre à 17 °C la nuit). Vide : la pièce suit le foyer.
 - **Prévisions** : température extérieure prévue sur quinze jours, par moment de la
   journée (Open-Meteo, CC BY 4.0).
 - **Recommandations par pièce** : en plus de la vue du foyer, un onglet par pièce déclarée et un

@@ -59,7 +59,7 @@ final readonly class RecommendationService
 
         $byPlace = [];
         foreach ($places as $place) {
-            $byPlace[(int) $place->getId()] = $this->engine->recommend($forecast, $analysis->modelsFor($place->getName()), $targets);
+            $byPlace[(int) $place->getId()] = $this->engine->recommend($forecast, $analysis->modelsFor($place->getName()), $this->targets($household, $place));
         }
 
         return new RecommendationSet($this->engine->recommend($forecast, $analysis->models, $targets), $byPlace);
@@ -76,14 +76,17 @@ final readonly class RecommendationService
     }
 
     /**
-     * @return array<int, array<string, float>> température visée par jour de la semaine puis par créneau
+     * Températures visées par jour de la semaine puis par créneau : celles du foyer, remplacées pour
+     * une pièce par ses propres températures là où elle en a.
+     *
+     * @return array<int, array<string, float>>
      */
-    private function targets(Household $household): array
+    private function targets(Household $household, ?Place $place = null): array
     {
         $targets = [];
         foreach (Weekday::cases() as $day) {
             foreach (DaySlot::cases() as $slot) {
-                $targets[$day->value][$slot->value] = $household->targetFor($day, $slot)->getTemperature();
+                $targets[$day->value][$slot->value] = $place?->targetFor($slot) ?? $household->targetFor($day, $slot)->getTemperature();
             }
         }
 

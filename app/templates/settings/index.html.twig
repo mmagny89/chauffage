@@ -103,42 +103,41 @@
     </form>
 </section>
 
-<section aria-labelledby="cibles">
-    <h2 id="cibles" class="mb-2 text-lg font-semibold">Températures visées</h2>
+<section aria-labelledby="cibles" class="mb-10">
+    <h2 id="cibles" class="mb-2 text-lg font-semibold">Températures visées du foyer</h2>
     <p class="mb-4 max-w-2xl text-sm text-slate-700">Température intérieure en dessous de laquelle vous souhaitez chauffer, pour chaque moment de chaque jour de la semaine (par exemple plus bas en semaine quand la maison est vide). Matin 6 h – 12 h, après-midi 12 h – 18 h, soirée 18 h – 22 h, nuit 22 h – 6 h le lendemain.</p>
 
     {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
         {{ form_errors(form) }}
-        <div class="mb-5 overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table class="w-full text-left text-sm">
-                <caption class="sr-only">Température visée en °C, par jour de la semaine et par moment de la journée</caption>
-                <thead class="bg-slate-100 text-slate-700">
-                    <tr>
-                        <th scope="col" class="px-4 py-3 font-semibold">Jour</th>
-                        {% for slot in slots %}
-                            <th scope="col" class="px-4 py-3 font-semibold">{{ slot.label }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for day in weekdays %}
-                        {% set dayForm = attribute(form, day.key) %}
-                        <tr class="border-t border-slate-100">
-                            <th scope="row" class="px-4 py-2 font-medium">{{ day.label }}</th>
-                            {% for slot in slots %}
-                                {% set field = attribute(dayForm, slot.value) %}
-                                <td class="px-3 py-2 align-top">
-                                    <label for="{{ field.vars.id }}" class="sr-only">{{ day.label }}, {{ slot.label|lower }}, température visée en degrés</label>
-                                    {{ form_widget(field, {attr: {class: 'w-24'}}) }}
-                                    {{ form_errors(field) }}
-                                </td>
-                            {% endfor %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="max-w-xs">{% include 'partials/_button.html.twig' with {label: 'Enregistrer'} %}</div>
+        {% set rows = [] %}
+        {% for day in weekdays %}
+            {% set dayForm = attribute(form, day.key) %}
+            {% set fields = {} %}
+            {% for slot in slots %}{% set fields = fields|merge({(slot.value): attribute(dayForm, slot.value)}) %}{% endfor %}
+            {% set rows = rows|merge([{id: 'jour-' ~ day.key, label: day.label, fields: fields}]) %}
+        {% endfor %}
+        {% include 'settings/_target_grid.html.twig' with {rows: rows, slots: slots, corner: 'Jour'} %}
+        <div class="max-w-xs">{% include 'partials/_button.html.twig' with {label: 'Enregistrer les températures du foyer'} %}</div>
     {{ form_end(form) }}
 </section>
+
+{% if places is not empty %}
+<section id="cibles-pieces" aria-labelledby="titre-cibles-pieces">
+    <h2 id="titre-cibles-pieces" class="mb-2 text-lg font-semibold">Températures visées par pièce</h2>
+    <p class="mb-4 max-w-2xl text-sm text-slate-700">Facultatif. Une température saisie ici <strong>remplace celle du foyer</strong> pour cette pièce et ce moment de la journée, tous les jours de la semaine (par exemple une chambre à 17 °C la nuit). Laissez vide pour que la pièce suive le foyer.</p>
+
+    {{ form_start(placeForm, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_errors(placeForm) }}
+        {% set placeRows = [] %}
+        {% for place in places %}
+            {% set placeFields = attribute(placeForm, 'p' ~ place.id) %}
+            {% set fields = {} %}
+            {% for slot in slots %}{% set fields = fields|merge({(slot.value): attribute(placeFields, slot.value)}) %}{% endfor %}
+            {% set placeRows = placeRows|merge([{id: 'piece-' ~ place.id, label: place.name, fields: fields}]) %}
+        {% endfor %}
+        {% include 'settings/_target_grid.html.twig' with {rows: placeRows, slots: slots, corner: 'Pièce'} %}
+        <div class="max-w-xs">{% include 'partials/_button.html.twig' with {label: 'Enregistrer les températures par pièce'} %}</div>
+    {{ form_end(placeForm) }}
+</section>
+{% endif %}
 {% endblock %}
