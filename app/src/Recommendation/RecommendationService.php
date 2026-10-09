@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Recommendation;
 
 use App\Calculation\DeltaCalculator;
-use App\Calculation\DeltaReport;
+use App\Calculation\DeltaModelFitter;
 use App\Entity\Household;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
@@ -21,6 +21,7 @@ final readonly class RecommendationService
         private ForecastService $forecasts,
         private ReadingRepository $readings,
         private DeltaCalculator $calculator,
+        private DeltaModelFitter $fitter,
         private RecommendationEngine $engine,
     ) {
     }
@@ -31,7 +32,7 @@ final readonly class RecommendationService
      * @throws \App\Forecast\HouseholdNotLocatedException
      * @throws \App\Forecast\ForecastUnavailableException
      */
-    public function forHousehold(Household $household, ?DeltaReport $deltas = null): array
+    public function forHousehold(Household $household, ?Analysis $analysis = null): array
     {
         $targets = [];
         foreach (Weekday::cases() as $day) {
@@ -42,13 +43,18 @@ final readonly class RecommendationService
 
         return $this->engine->recommend(
             $this->forecasts->forHousehold($household),
-            $deltas ?? $this->deltas($household),
+            ($analysis ?? $this->analyze($household))->models,
             $targets,
         );
     }
 
-    public function deltas(Household $household): DeltaReport
+    /**
+     * Analyse les relevés du foyer : une seule lecture en base pour les moyennes et les modèles.
+     */
+    public function analyze(Household $household): Analysis
     {
-        return $this->calculator->calculate($this->readings->findByHousehold($household));
+        $readings = $this->readings->findByHousehold($household);
+
+        return new Analysis($this->calculator->calculate($readings), $this->fitter->fit($readings));
     }
 }

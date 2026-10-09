@@ -37,13 +37,13 @@ final class RecommendationController extends AbstractController
         #[CurrentUser] User $user,
     ): Response {
         $household = $households->forUser($user);
-        $deltas = $recommendations->deltas($household);
+        $analysis = $recommendations->analyze($household);
         $timezone = new \DateTimeZone($household->getTimezone());
 
         $days = [];
         $error = null;
         try {
-            $days = $recommendations->forHousehold($household, $deltas);
+            $days = $recommendations->forHousehold($household, $analysis);
         } catch (HouseholdNotLocatedException) {
             // Signalé par le gabarit : invitation à renseigner la ville.
         } catch (ForecastUnavailableException) {
@@ -69,7 +69,7 @@ final class RecommendationController extends AbstractController
         return $this->render('recommendation/index.html.twig', [
             'household' => $household,
             'located' => null !== $household->getLatitude(),
-            'hasReadings' => !$deltas->isEmpty(),
+            'hasReadings' => !$analysis->report->isEmpty(),
             'daysDone' => $readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,
             'rows' => $rows,

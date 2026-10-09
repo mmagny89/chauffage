@@ -179,6 +179,33 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertStringContainsString('visé 17,0 °C', $saturday);
     }
 
+    public function testRegressionDrivesTheEstimateAndOutOfRangeForecastsAreFlagged(): void
+    {
+        // Matin, cinq jours à 2…14 °C : écart = 8 − 0,4 × extérieur. Prévisions du double de test :
+        // matin 8,5 / après-midi 14,5 / soirée 19,5 / nuit 7,5 (les trois derniers : modèle général, même droite).
+        $user = $this->createUser('a@example.com', located: true);
+        $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]);
+        $place = new Place($household, 'Salon');
+        $this->em->persist($place);
+        foreach ([[1, 2.0], [2, 5.0], [3, 8.0], [4, 11.0], [5, 14.0]] as [$day, $outdoor]) {
+            $this->em->persist(new Reading($place, new \DateTimeImmutable(\sprintf('2026-10-%02d 08:00', $day)), $outdoor, round(8.0 + 0.6 * $outdoor, 1)));
+        }
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/recommandations');
+
+        $cells = $crawler->filter('tbody tr')->first()->filter('td');
+        // Matin : 8,5 + (8 − 0,4 × 8,5 = 4,6) = 13,1
+        self::assertStringContainsString('dedans ≈ 13,1 °C', $cells->eq(0)->text());
+        self::assertStringNotContainsString('hors plage mesurée', $cells->eq(0)->text());
+        // Après-midi : 14,5 reste dans la marge (14 + 3) ; soirée : 19,5 la dépasse.
+        self::assertStringNotContainsString('hors plage mesurée', $cells->eq(1)->text());
+        self::assertStringContainsString('hors plage mesurée', $cells->eq(2)->text());
+        self::assertStringContainsString('écart général', $cells->eq(2)->text());
+        self::assertSelectorExists('a[href="/ecarts#modele"]');
+    }
+
     public function testOutageIsReportedWithoutBreakingThePage(): void
     {
         $user = $this->createUser('a@example.com', located: true, latitude: 85.0);

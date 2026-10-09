@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Recommendation;
 
+use App\Calculation\ModelKind;
 use App\Enum\DaySlot;
 
 /**
@@ -21,6 +22,8 @@ final readonly class SlotRecommendation
         public int $deltaSamples,
         public bool $deltaIsFallback,
         public bool $forecastComplete,
+        public ?ModelKind $method = null,
+        public bool $extrapolated = false,
     ) {
     }
 

@@ -1,0 +1,14 @@
+<td class="px-4 py-3 align-top">{{ model.readings }} <span class="block text-xs text-slate-500">{{ model.sessions }} instant{{ model.sessions > 1 ? 's' : '' }} distinct{{ model.sessions > 1 ? 's' : '' }}</span></td>
+<td class="px-4 py-3 align-top">{{ model.outdoorMin|number_format(1, ',') }} à {{ model.outdoorMax|number_format(1, ',') }} °C</td>
+<td class="px-4 py-3 align-top">
+    {% if model.kind.value == 'regression' %}
+        <span class="font-medium">Régression</span> : écart = {{ model.intercept|number_format(1, ',') }} {{ model.slope < 0 ? '−' : '+' }} {{ model.slope|abs|number_format(2, ',') }} × T° extérieure
+        <span class="block text-xs text-slate-500">soit intérieur ≈ {{ model.intercept|number_format(1, ',') }} + {{ (1 + model.slope)|number_format(2, ',') }} × T° extérieure</span>
+    {% else %}
+        <span class="font-medium">Écart moyen</span> : {{ model.intercept > 0 ? '+' : '' }}{{ model.intercept|number_format(1, ',') }} °C, constant
+        <span class="block text-xs text-slate-500">
+            {% if model.refusal == 'sessions' %}Moins de {{ minSessions }} relevés à des instants distincts.
+            {% elseif model.refusal == 'range' %}Températures extérieures trop proches (moins de {{ minSpread|number_format(0, ',') }} °C d’écart).{% endif %}
+        </span>
+    {% endif %}
+</td>

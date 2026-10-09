@@ -9,5 +9,6 @@
     <span class="mt-1 block text-xs text-slate-600">dehors {{ item.outdoor|number_format(1, ',') }} °C</span>
     <span class="block text-xs text-slate-600">dedans ≈ {{ item.estimatedIndoor|number_format(1, ',') }} °C</span>
     <span class="block text-xs text-slate-500">visé {{ item.target|number_format(1, ',') }} °C</span>
+    {% if item.extrapolated %}<span class="block text-xs text-amber-700" title="La prévision sort des températures extérieures relevées : l’estimation est moins fiable. Faites des relevés à ces températures.">hors plage mesurée</span>{% endif %}
     {% if item.deltaIsFallback %}<span class="block text-xs text-slate-500" title="Aucun relevé sur ce créneau : écart moyen de tous les créneaux">écart général</span>{% endif %}
 {% endif %}

@@ -52,7 +52,7 @@ final class DeltaControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/ecarts');
 
         self::assertResponseIsSuccessful();
-        $rows = $crawler->filter('tbody tr');
+        $rows = $crawler->filter('table')->first()->filter('tbody tr');
         self::assertCount(2, $rows);
         self::assertStringContainsString('Cave', $rows->eq(0)->text());
         self::assertStringContainsString('+7,0 °C', $rows->eq(0)->text());
@@ -60,7 +60,42 @@ final class DeltaControllerTest extends WebTestCase
         self::assertStringContainsString('+14,0 °C', $rows->eq(1)->text());
         self::assertStringContainsString('2 relevés', $rows->eq(1)->text());
         self::assertStringContainsString('—', $rows->eq(1)->text(), 'Créneaux sans relevé.');
-        self::assertStringContainsString('Tous les lieux', $crawler->filter('tfoot')->text());
+        self::assertStringContainsString('Tous les lieux', $crawler->filter('table')->first()->filter('tfoot')->text());
+    }
+
+    public function testExplainsTheMeanModelWhenThereAreTooFewReadings(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->addReadings($user, 'Salon', [['2026-10-07 07:00', 5.0, 18.0], ['2026-10-08 08:00', 3.0, 18.0]]);
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/ecarts');
+
+        $model = $crawler->filter('#modele')->ancestors()->first()->text();
+        self::assertStringContainsString('Écart moyen', $model);
+        self::assertStringContainsString('Moins de 4 relevés à des instants distincts', $model);
+        self::assertStringContainsString('Aucun relevé : le modèle de tous les créneaux est utilisé', $model);
+        self::assertStringNotContainsString('Régression', $model);
+    }
+
+    public function testShowsTheRegressionFormulaWhenReadingsAreVariedEnough(): void
+    {
+        // Matin, cinq jours : intérieur = 8 + 0,6 × extérieur, donc écart = 8 − 0,4 × extérieur.
+        $user = $this->createUser('a@example.com');
+        $this->addReadings($user, 'Salon', array_map(
+            static fn (int $d, float $t): array => [\sprintf('2026-10-%02d 08:00', $d), $t, round(8.0 + 0.6 * $t, 1)],
+            [1, 2, 3, 4, 5],
+            [2.0, 5.0, 8.0, 11.0, 14.0],
+        ));
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/ecarts');
+
+        $model = $crawler->filter('#modele')->ancestors()->first()->text();
+        self::assertStringContainsString('Régression', $model);
+        self::assertStringContainsString('écart = 8,0 − 0,40 × T° extérieure', $model);
+        self::assertStringContainsString('intérieur ≈ 8,0 + 0,60 × T° extérieure', $model);
+        self::assertStringContainsString('2,0 à 14,0 °C', $model);
     }
 
     public function testResultsAreFlaggedProvisionalBeforeFiveDays(): void

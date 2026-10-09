@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Recommendation;
 
-use App\Calculation\DeltaReport;
-use App\Calculation\SlotDelta;
+use App\Calculation\DeltaModels;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
 use App\Forecast\DayForecast;
@@ -13,10 +12,13 @@ use App\Forecast\DayForecast;
 /**
  * Décide, pour chaque jour et créneau, s'il faut chauffer ou si on peut couper.
  *
- * Règle : la température visée dépend du jour de la semaine et du créneau ; température intérieure estimée = température extérieure prévue + écart moyen
- * du foyer sur ce créneau (à défaut de relevé sur ce créneau, écart moyen tous créneaux
- * confondus, signalé). Si l'estimation est strictement sous la température visée, on
- * chauffe, à cette température ; sinon on coupe. Calcul pur, en dixièmes de degré entiers.
+ * Règle : la température visée dépend du jour de la semaine et du créneau ; température
+ * intérieure estimée = température extérieure prévue + écart du foyer sur ce créneau, calculé
+ * par son modèle à cette température extérieure (régression, ou écart moyen faute de données ;
+ * à défaut de relevé sur le créneau, modèle de tous les créneaux, signalé). Une prévision hors
+ * de la plage des températures mesurées est signalée. Si l'estimation est strictement sous
+ * la température visée, on chauffe, à cette température ; sinon on coupe. Calcul pur, en
+ * dixièmes de degré entiers.
  */
 final class RecommendationEngine
 {
@@ -27,13 +29,13 @@ final class RecommendationEngine
      *
      * @return list<DayRecommendation>
      */
-    public function recommend(array $days, DeltaReport $deltas, array $targets): array
+    public function recommend(array $days, DeltaModels $models, array $targets): array
     {
-        return array_map(function (DayForecast $day) use ($deltas, $targets): DayRecommendation {
+        return array_map(function (DayForecast $day) use ($models, $targets): DayRecommendation {
             $dayTargets = $targets[Weekday::fromDate($day->date)->value];
             $slots = [];
             foreach (DaySlot::cases() as $slot) {
-                $slots[$slot->value] = $this->forSlot($day, $slot, $deltas, $dayTargets[$slot->value]);
+                $slots[$slot->value] = $this->forSlot($day, $slot, $models, $dayTargets[$slot->value]);
             }
 
             return new DayRecommendation($day->date, $slots);
@@ -68,7 +70,7 @@ final class RecommendationEngine
         return $upcoming;
     }
 
-    private function forSlot(DayForecast $day, DaySlot $slot, DeltaReport $deltas, float $target): SlotRecommendation
+    private function forSlot(DayForecast $day, DaySlot $slot, DeltaModels $models, float $target): SlotRecommendation
     {
         $forecast = $day->forSlot($slot);
         if (!$forecast->hasData()) {
@@ -77,16 +79,17 @@ final class RecommendationEngine
         \assert(null !== $forecast->average);
 
         $fallback = false;
-        $delta = $deltas->household->forSlot($slot);
-        if (0 === $delta->count) {
-            $delta = $deltas->household->overall;
+        $model = $models->forSlot($slot);
+        if (null === $model) {
+            $model = $models->overall;
             $fallback = true;
         }
-        if (null === $delta->average) {
+        if (null === $model) {
             return SlotRecommendation::unknown($slot, $target, $forecast->average, $forecast->isComplete());
         }
 
-        $estimatedTenths = (int) round($forecast->average * 10) + (int) round($delta->average * 10);
+        $deltaTenths = (int) round($model->deltaAt($forecast->average) * 10);
+        $estimatedTenths = (int) round($forecast->average * 10) + $deltaTenths;
         $targetTenths = (int) round($target * 10);
 
         return new SlotRecommendation(
@@ -94,11 +97,13 @@ final class RecommendationEngine
             $estimatedTenths < $targetTenths ? HeatingAction::Heat : HeatingAction::Cut,
             $target,
             $forecast->average,
-            $delta->average,
+            $deltaTenths / 10,
             $estimatedTenths / 10,
-            $delta->count,
+            $model->readings,
             $fallback,
             $forecast->isComplete(),
+            $model->kind,
+            !$model->covers($forecast->average),
         );
     }
 }

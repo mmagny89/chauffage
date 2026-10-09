@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Calculation\DeltaCalculator;
+use App\Calculation\DeltaModelFitter;
+use App\Recommendation\RecommendationService;
 use App\Entity\User;
 use App\Enum\DaySlot;
 use App\Repository\ReadingRepository;
@@ -21,13 +22,18 @@ final class DeltaController extends AbstractController
     public function index(
         HouseholdProvider $households,
         ReadingRepository $readings,
-        DeltaCalculator $calculator,
+        RecommendationService $recommendations,
         #[CurrentUser] User $user,
     ): Response {
         $household = $households->forUser($user);
 
+        $analysis = $recommendations->analyze($household);
+
         return $this->render('delta/index.html.twig', [
-            'report' => $calculator->calculate($readings->findByHousehold($household)),
+            'report' => $analysis->report,
+            'models' => $analysis->models,
+            'minSessions' => DeltaModelFitter::MIN_SESSIONS,
+            'minSpread' => DeltaModelFitter::MIN_SPREAD,
             'slots' => DaySlot::chronological(),
             'daysDone' => $readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,

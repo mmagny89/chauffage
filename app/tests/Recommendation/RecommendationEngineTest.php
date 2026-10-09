@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Recommendation;
 
-use App\Calculation\DeltaCalculator;
-use App\Calculation\DeltaReport;
+use App\Calculation\DeltaModelFitter;
+use App\Calculation\DeltaModels;
+use App\Calculation\ModelKind;
 use App\Entity\Household;
 use App\Entity\Place;
 use App\Entity\Reading;
@@ -106,7 +107,7 @@ final class RecommendationEngineTest extends TestCase
 
     public function testUnknownWithoutAnyReading(): void
     {
-        $empty = (new DeltaCalculator())->calculate([]);
+        $empty = (new DeltaModelFitter())->fit([]);
 
         $result = $this->morning($empty, 5.0);
 
@@ -175,6 +176,67 @@ final class RecommendationEngineTest extends TestCase
         self::assertSame(17.0, $sat->forSlot(DaySlot::Morning)->target);
     }
 
+    public function testRegressionMakesTheDeltaGrowWhenItGetsColder(): void
+    {
+        // Relevés par temps doux (2 à 14 °C) : intérieur = 8 + 0,6 × extérieur.
+        $models = $this->regressionModels();
+
+        // Prévision de 4,0 °C : écart 8 − 0,4 × 4 = 6,4 → intérieur 10,4 (et non 8,8 avec l'écart moyen de 4,8).
+        $result = $this->engine->recommend([$this->forecastDay(['morning' => 4.0])], $models, self::week())[0]->forSlot(DaySlot::Morning);
+
+        self::assertSame(ModelKind::Regression, $result->method);
+        self::assertSame(6.4, $result->delta);
+        self::assertSame(10.4, $result->estimatedIndoor);
+        self::assertFalse($result->extrapolated);
+        self::assertSame(HeatingAction::Heat, $result->action);
+    }
+
+    public function testRegressionAndMeanDisagreeWhereItMatters(): void
+    {
+        $models = $this->regressionModels();
+        $cold = $this->engine->recommend([$this->forecastDay(['morning' => 4.0])], $models, self::week())[0]->forSlot(DaySlot::Morning);
+        $mild = $this->engine->recommend([$this->forecastDay(['morning' => 14.0])], $models, self::week())[0]->forSlot(DaySlot::Morning);
+
+        // Au point moyen des mesures (8 °C), la droite vaut l'écart moyen (4,8) ; ailleurs elle s'en écarte.
+        self::assertSame(2.4, $mild->delta);
+        self::assertSame(16.4, $mild->estimatedIndoor);
+        self::assertGreaterThan($mild->delta, $cold->delta);
+    }
+
+    public function testForecastOutsideTheMeasuredRangeIsFlagged(): void
+    {
+        $models = $this->regressionModels();
+
+        $inside = $this->engine->recommend([$this->forecastDay(['morning' => 16.0])], $models, self::week())[0]->forSlot(DaySlot::Morning);
+        $below = $this->engine->recommend([$this->forecastDay(['morning' => -5.0])], $models, self::week())[0]->forSlot(DaySlot::Morning);
+        $above = $this->engine->recommend([$this->forecastDay(['morning' => 18.0])], $models, self::week())[0]->forSlot(DaySlot::Morning);
+
+        self::assertFalse($inside->extrapolated, '16 °C : dans la marge de 3 °C au-dessus de 14.');
+        self::assertTrue($below->extrapolated);
+        self::assertTrue($above->extrapolated);
+    }
+
+    public function testMeanModelIsUsedWithoutEnoughReadingsAndSaysSo(): void
+    {
+        $models = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
+
+        $result = $this->morning($models, 5.0);
+
+        self::assertSame(ModelKind::Mean, $result->method);
+        self::assertSame(13.0, $result->delta);
+    }
+
+    public function testOverallRegressionIsTheFallbackForASlotWithoutReadings(): void
+    {
+        $models = $this->regressionModels(); // relevés du matin seulement
+
+        $evening = $this->engine->recommend([$this->forecastDay(['evening' => 4.0])], $models, self::week())[0]->forSlot(DaySlot::Evening);
+
+        self::assertTrue($evening->deltaIsFallback);
+        self::assertSame(ModelKind::Regression, $evening->method);
+        self::assertSame(6.4, $evening->delta);
+    }
+
     public function testUpcomingStartsWithTheRunningSlot(): void
     {
         $days = $this->recommendedDays(3);
@@ -213,7 +275,17 @@ final class RecommendationEngineTest extends TestCase
         self::assertCount(2, $upcoming, 'Soirée et nuit du dernier jour.');
     }
 
-    private function morning(DeltaReport $deltas, float $outdoor): \App\Recommendation\SlotRecommendation
+    private function regressionModels(): DeltaModels
+    {
+        $readings = [];
+        foreach ([2.0, 5.0, 8.0, 11.0, 14.0] as $index => $outdoor) {
+            $readings[\sprintf('2026-10-%02d 08:00', $index + 1)] = [$outdoor, round(8.0 + 0.6 * $outdoor, 1)];
+        }
+
+        return $this->deltas($readings);
+    }
+
+    private function morning(DeltaModels $deltas, float $outdoor): \App\Recommendation\SlotRecommendation
     {
         return $this->engine->recommend([$this->forecastDay(['morning' => $outdoor])], $deltas, self::week())[0]->forSlot(DaySlot::Morning);
     }
@@ -221,11 +293,11 @@ final class RecommendationEngineTest extends TestCase
     /**
      * @param array<string, array{float, float}> $readings heure => [extérieur, intérieur]
      */
-    private function deltas(array $readings): DeltaReport
+    private function deltas(array $readings): DeltaModels
     {
         $place = new Place(new Household(new User()), 'Salon');
 
-        return (new DeltaCalculator())->calculate(array_map(
+        return (new DeltaModelFitter())->fit(array_map(
             static fn (string $at, array $temps): Reading => new Reading($place, new \DateTimeImmutable($at), $temps[0], $temps[1]),
             array_keys($readings),
             $readings,
