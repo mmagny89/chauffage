@@ -81,6 +81,19 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   température extérieure + température intérieure de **chaque lieu déclaré**, toutes
   obligatoires, enregistrées en bloc (rien si une ligne est refusée). L'heure est l'heure
   murale locale, sans fuseau ; le futur et les doublons (lieu, instant) sont refusés.
+- **Allumages du chauffage** (`HeatingStart`) : saisis **dans le formulaire de relevé**, par une consigne
+  facultative par lieu (« Vous allumez le chauffage juste après ? ») ; l'allumage reprend la date, l'heure,
+  la température extérieure et la température du lieu du relevé (prise chauffage éteint, juste avant), et
+  n'est écrit qu'avec lui (tout ou rien). Pièce, date et heure murales locales, consigne réglée (5–30 °C),
+  température de la pièce (0–40 °C). **Ce n'est pas un relevé** : pris chauffage allumé, il n'entre jamais dans le calcul des
+  écarts (`Reading` reste la seule source). Futur et doublons (pièce, instant) refusés ; supprimé avec sa
+  pièce (cascade). Température extérieure obligatoire (facultative en base : allumages antérieurs).
+  **Effet sur l'affichage** (`HeatingDays`) : si un allumage est noté **aujourd'hui** (la pièce pour une
+  vue de pièce, une pièce quelconque pour le foyer), les créneaux **d'aujourd'hui** des listes « À venir »
+  (accueil, page Recommandations, pièce par pièce) disent « Chauffer » **sans température** : la consigne
+  est déjà réglée. Partout ailleurs — créneaux des autres jours, tableau des 15 jours — la recommandation
+  reste « Chauffer à X °C », X étant la température visée (celle de la pièce, ou du foyer). Rien d'autre
+  ne change : la décision chauffer/couper se prend toujours sur la température visée.
 - **Lieux** : déclarés dans les réglages (30 au plus par foyer), noms uniques sans tenir compte
   de la casse. Supprimer un lieu supprime ses relevés (cascade en base).
 - **Écart** = intérieur − extérieur. Sans chauffage l'intérieur suit le dehors de façon amortie
@@ -99,8 +112,12 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   (une précision au dixième serait fausse). Prévision hors de la plage relevée (marge 3 °C) →
   « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »
   sous 5 jours de relevés (`Calibration::DAYS_REQUIRED`).
-- **Recommandation par pièce** (`?piece=<id>`, onglets « Tout le foyer » + une pièce chacune, et un
-  tableau « Pièce par pièce » pour les quatre prochains créneaux, seulement s'il y a ≥ 2 pièces) :
+- **Recommandation par pièce** (`?piece=<id>`, onglets « Tout le foyer » + une pièce chacune, un
+  tableau « Pièce par pièce » pour les quatre prochains créneaux, et des cartes en tête de l'accueil
+  pour les deux prochains) : **si et seulement si au moins une pièce du foyer a une température visée propre**
+  (`PlaceRepository::findForRecommendations()`) : alors *toutes* les pièces ont leur onglet, ligne et carte
+  (celles sans cible propre suivent le foyer) ; sinon aucune, et `?piece=` est une 404. Une seule pièce suffit.
+  Icône de pièce choisie d'après son nom (`PlaceIconExtension`, repli : maison). Règles :
   mêmes règles, mais avec le modèle d'écart **de la pièce** (`DeltaModelFitter::fitPlaces`, relevés de
   cette pièce seulement) ; températures visées du foyer, **remplacées par celles de la pièce** là où elle en a (`PlaceTarget`, par
   créneau, facultatives, valables tous les jours de la semaine ; vide = suit le foyer). Une pièce
@@ -112,7 +129,7 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 
 ## Architecture
 
-- `src/Entity` — `User`, `Household`, `HeatingTarget`, `Place`, `PlaceTarget`, `Reading`. Le foyer complète
+- `src/Entity` — `User`, `Household`, `HeatingTarget`, `Place`, `PlaceTarget`, `Reading`, `HeatingStart`. Le foyer complète
   lui-même ses cibles manquantes (`Household::completeTargets`, via `HouseholdProvider`).
 - `src/Calculation`, `src/Forecast`, `src/Recommendation` — calcul pur ; `Geocoding` et
   `Forecast\OpenMeteo*` — clients HTTP derrière une interface (doubles dans `tests/Support`).

@@ -1,1 +1,2 @@
-<button type="submit" class="min-h-11 w-full rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">{{ label }}</button>
+{% import 'partials/_icon.html.twig' as ui %}
+<button type="submit" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">{% if icon is defined %}{{ ui.icon(icon) }}{% endif %}{{ label }}</button>

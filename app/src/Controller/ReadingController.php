@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Dto\ReadingSessionInput;
+use App\Entity\HeatingStart;
 use App\Entity\Reading;
 use App\Entity\User;
 use App\Exception\ReadingsRejectedException;
 use App\Form\ReadingSessionType;
+use App\Repository\HeatingStartRepository;
 use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
+use App\Security\Voter\HeatingStartVoter;
 use App\Security\Voter\ReadingVoter;
 use App\Service\Calibration;
 use App\Service\DateLabels;
@@ -32,6 +35,7 @@ final class ReadingController extends AbstractController
         private readonly HouseholdProvider $households,
         private readonly ReadingRepository $readings,
         private readonly PlaceRepository $places,
+        private readonly HeatingStartRepository $heatingStarts,
     ) {
     }
 
@@ -52,13 +56,21 @@ final class ReadingController extends AbstractController
 
             if ($form->isSubmitted() && $form->isValid()) {
                 try {
-                    $count = $recorder->record($household, $input, $places);
-                    $this->addFlash('success', 1 === $count ? '1 relevé enregistré.' : \sprintf('%d relevés enregistrés (un par lieu).', $count));
+                    $recorded = $recorder->record($household, $input, $places);
+                    $message = 1 === $recorded->readings ? '1 relevé enregistré.' : \sprintf('%d relevés enregistrés (un par lieu).', $recorded->readings);
+                    if ([] !== $recorded->heatedPlaces) {
+                        $message .= ' Chauffage noté pour : '.implode(', ', $recorded->heatedPlaces).'.';
+                    }
+                    $this->addFlash('success', $message);
 
                     return $this->redirectToRoute('app_readings');
                 } catch (ReadingsRejectedException $exception) {
                     foreach ($exception->reasons as $field => $reason) {
-                        $target = 'time' === $field ? $form->get('time') : $form->get('indoor')->get($field);
+                        $target = match (true) {
+                            'time' === $field => $form->get('time'),
+                            str_starts_with($field, 'h') => $form->get('heating')->get('p'.substr($field, 1)),
+                            default => $form->get('indoor')->get($field),
+                        };
                         $target->addError(new FormError($reason));
                     }
                 }
@@ -75,6 +87,7 @@ final class ReadingController extends AbstractController
 
         return $this->render('reading/index.html.twig', [
             'form' => $form,
+            'heatingStarts' => $this->heatingStarts->findByHousehold($household),
             'places' => $places,
             'days' => $days,
             'daysDone' => $this->readings->countDays($household),
@@ -98,5 +111,23 @@ final class ReadingController extends AbstractController
         $this->addFlash('success', 'Relevé supprimé.');
 
         return $this->redirectToRoute('app_readings');
+    }
+
+    #[Route('/chauffage/{id}/supprimer', name: 'app_heating_start_delete', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function deleteHeatingStart(HeatingStart $start, Request $request, EntityManagerInterface $entityManager): Response
+    {
+        $this->denyAccessUnlessGranted(HeatingStartVoter::DELETE, $start);
+
+        if (!$this->isCsrfTokenValid('delete-heating-start-'.$start->getId(), (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Action refusée : le jeton de sécurité a expiré. Réessayez.');
+
+            return $this->redirectToRoute('app_readings', ['_fragment' => 'chauffage']);
+        }
+
+        $entityManager->remove($start);
+        $entityManager->flush();
+        $this->addFlash('success', 'Allumage supprimé.');
+
+        return $this->redirectToRoute('app_readings', ['_fragment' => 'chauffage']);
     }
 }

@@ -1,23 +1,25 @@
 {# En-tête : marque, navigation principale, compte. Sur petit écran le menu se replie derrière un bouton
    (contrôleur Stimulus « menu ») ; sans JavaScript il reste visible, empilé. #}
 {% import _self as nav %}
-{% macro link(href, label, current) %}
+{% import 'partials/_icon.html.twig' as ui %}
+{% macro link(href, label, current, icon = null) %}
+    {% import 'partials/_icon.html.twig' as ui %}
     <a href="{{ href }}"{% if current %} aria-current="page"{% endif %}
-       class="inline-flex min-h-11 w-full items-center rounded-md px-3 py-2 text-sm font-medium lg:w-auto {{ current ? 'bg-slate-900 text-white' : 'text-slate-800 hover:bg-slate-100' }}">{{ label }}</a>
+       class="inline-flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap lg:w-auto lg:px-2.5 {{ current ? 'bg-slate-900 text-white' : 'text-slate-800 hover:bg-slate-100' }}">{% if icon %}{{ ui.icon(icon) }}{% endif %}{{ label }}</a>
 {% endmacro %}
 
 {% set route = app.request.attributes.get('_route')|default('') %}
 {% set pending = app.request.attributes.get('setup_pending') %}
 {% set sections = [
-    {path: path('app_recommendations'), label: 'Recommandations', routes: ['app_recommendations']},
-    {path: path('app_readings'), label: 'Relevés', routes: ['app_readings', 'app_reading_delete']},
-    {path: path('app_deltas'), label: 'Écarts', routes: ['app_deltas']},
-    {path: path('app_forecast'), label: 'Prévisions', routes: ['app_forecast']},
+    {path: path('app_recommendations'), label: 'Recommandations', icon: 'flame', routes: ['app_recommendations']},
+    {path: path('app_readings'), label: 'Relevés', icon: 'thermometer', routes: ['app_readings', 'app_reading_delete']},
+    {path: path('app_deltas'), label: 'Écarts', icon: 'gap', routes: ['app_deltas']},
+    {path: path('app_forecast'), label: 'Prévisions', icon: 'cloud', routes: ['app_forecast']},
 ] %}
 
 <header class="border-b border-slate-200 bg-white" data-controller="menu">
-    <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
-        <a href="{{ path('app_home') }}" class="inline-flex min-h-11 items-center gap-2 rounded-md text-lg font-semibold"><span aria-hidden="true">🔥</span> Chauffage</a>
+    <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 lg:flex-nowrap">
+        <a href="{{ path('app_home') }}" class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md text-lg font-semibold"><span aria-hidden="true" class="text-amber-600">{{ ui.icon('flame', 'size-6') }}</span> Chauffage</a>
 
         {% if is_granted('ROLE_USER') %}
             <button type="button" hidden data-menu-target="button" data-action="menu#toggle" aria-expanded="false" aria-controls="menu-principal"
@@ -26,27 +28,27 @@
                 Menu
             </button>
 
-            <div id="menu-principal" data-menu-target="panel" class="basis-full pb-2 lg:flex lg:flex-1 lg:basis-auto lg:items-center lg:justify-between lg:pb-0">
+            <div id="menu-principal" data-menu-target="panel" class="basis-full pb-2 lg:flex lg:min-w-0 lg:flex-1 lg:basis-auto lg:items-center lg:justify-between lg:gap-4 lg:pb-0">
                 <nav aria-label="Navigation principale">
                     <ul class="flex flex-col gap-1 lg:flex-row lg:items-center">
                         {% if not pending %}
                             {% for section in sections %}
-                                <li>{{ nav.link(section.path, section.label, route in section.routes) }}</li>
+                                <li>{{ nav.link(section.path, section.label, route in section.routes, section.icon) }}</li>
                             {% endfor %}
                         {% endif %}
-                        <li>{{ nav.link(path('app_settings'), pending ? 'Mise en route' : 'Réglages', route starts with 'app_settings' or route starts with 'app_place_' or route == 'app_setup_finish') }}</li>
+                        <li>{{ nav.link(path('app_settings'), pending ? 'Mise en route' : 'Réglages', route starts with 'app_settings' or route starts with 'app_place_' or route == 'app_setup_finish', 'settings') }}</li>
                     </ul>
                 </nav>
-                <div class="mt-2 flex flex-col gap-1 border-t border-slate-100 pt-2 lg:mt-0 lg:flex-row lg:items-center lg:gap-3 lg:border-0 lg:pt-0">
-                    <span class="px-3 text-sm text-slate-700 lg:max-w-[14rem] lg:truncate lg:px-0" title="{{ app.user.userIdentifier }}"><span class="sr-only">Connecté : </span>{{ app.user.userIdentifier }}</span>
-                    <a href="{{ logout_path() }}" class="inline-flex min-h-11 w-full items-center rounded-md px-3 py-2 text-sm font-medium text-slate-800 underline underline-offset-2 hover:bg-slate-100 lg:w-auto">Se déconnecter</a>
+                <div class="mt-2 flex flex-col gap-1 border-t border-slate-100 pt-2 lg:mt-0 lg:min-w-0 lg:flex-row lg:items-center lg:gap-3 lg:border-0 lg:pt-0">
+                    <span class="px-3 text-sm text-slate-700 lg:min-w-0 lg:max-w-[14rem] lg:truncate lg:px-0" title="{{ app.user.userIdentifier }}"><span class="sr-only">Connecté : </span>{{ app.user.userIdentifier }}</span>
+                    <a href="{{ logout_path() }}" class="inline-flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-800 underline underline-offset-2 hover:bg-slate-100 whitespace-nowrap lg:w-auto lg:px-2.5">{{ ui.icon('logout') }}Se déconnecter</a>
                 </div>
             </div>
         {% else %}
             <nav aria-label="Navigation principale" class="ml-auto">
                 <ul class="flex items-center gap-1">
-                    <li>{{ nav.link(path('app_login'), 'Se connecter', route == 'app_login') }}</li>
-                    <li>{{ nav.link(path('app_register'), 'Créer un compte', route == 'app_register') }}</li>
+                    <li>{{ nav.link(path('app_login'), 'Se connecter', route == 'app_login', 'login') }}</li>
+                    <li>{{ nav.link(path('app_register'), 'Créer un compte', route == 'app_register', 'user') }}</li>
                 </ul>
             </nav>
         {% endif %}

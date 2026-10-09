@@ -84,6 +84,15 @@ class Place
     }
 
     /**
+     * Vrai si la pièce a au moins une température visée propre : seules ces pièces ont leur
+     * recommandation, les autres suivent le foyer.
+     */
+    public function hasOwnTargets(): bool
+    {
+        return !$this->targets->isEmpty();
+    }
+
+    /**
      * La température visée propre à cette pièce pour ce créneau, ou null si elle suit le foyer.
      */
     public function targetFor(DaySlot $slot): ?float

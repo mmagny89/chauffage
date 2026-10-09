@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Form;
 
 use App\Dto\ReadingSessionInput;
+use App\Entity\HeatingTarget;
 use App\Entity\Place;
 use App\Entity\Reading;
 use Symfony\Component\Form\AbstractType;
@@ -69,6 +70,24 @@ final class ReadingSessionType extends AbstractType
             ]);
         }
         $builder->add($indoor);
+
+        // Facultatif : la consigne réglée si l'on allume le chauffage dans ce lieu juste après le relevé.
+        $heating = $builder->create('heating', FormType::class, ['label' => false, 'error_bubbling' => false, 'property_path' => 'setpoints']);
+        foreach ($options['places'] as $place) {
+            $heating->add(self::fieldName($place), NumberType::class, [
+                'label' => $place->getName(),
+                'required' => false,
+                'property_path' => '['.self::fieldName($place).']',
+                'html5' => true,
+                'scale' => 1,
+                'invalid_message' => 'Saisissez une température en degrés.',
+                'attr' => ['step' => '0.5', 'inputmode' => 'decimal'],
+                'constraints' => [
+                    new Range(min: HeatingTarget::MIN, max: HeatingTarget::MAX, notInRangeMessage: 'La consigne doit être comprise entre {{ min }} et {{ max }} °C.'),
+                ],
+            ]);
+        }
+        $builder->add($heating);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

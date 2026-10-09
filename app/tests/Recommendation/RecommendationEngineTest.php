@@ -302,6 +302,30 @@ final class RecommendationEngineTest extends TestCase
         return $this->deltas($readings);
     }
 
+    public function testHeatingAlreadyOnTodayMarksOnlyTodaysUpcomingSlots(): void
+    {
+        $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
+        $days = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'afternoon' => 5.0])], $deltas, self::week());
+        $now = new \DateTimeImmutable('2026-10-09 07:00');
+        $heating = new \App\Calculation\HeatingDays(['2026-10-09' => ['salon']]);
+
+        $plain = $this->engine->upcoming($days, $now, 2);
+        self::assertFalse($plain[0]->recommendation->heatingOn);
+        self::assertSame(19.0, $plain[0]->recommendation->setpoint());
+
+        $marked = $this->engine->upcoming($days, $now, 2, $heating);
+        self::assertTrue($marked[0]->recommendation->heatingOn, 'Chauffage allumé aujourd’hui : « Chauffer » seul.');
+        self::assertSame(HeatingAction::Heat, $marked[0]->recommendation->action);
+        self::assertSame(19.0, $days[0]->forSlot(DaySlot::Morning)->setpoint(), 'Le calcul lui-même ne change pas.');
+        self::assertFalse($days[0]->forSlot(DaySlot::Morning)->heatingOn);
+
+        self::assertTrue($this->engine->upcoming($days, $now, 1, $heating, 'Salon')[0]->recommendation->heatingOn);
+        self::assertFalse($this->engine->upcoming($days, $now, 1, $heating, 'Cave')[0]->recommendation->heatingOn, 'Un autre lieu n’est pas concerné.');
+
+        $tomorrow = new \App\Calculation\HeatingDays(['2026-10-08' => ['salon']]);
+        self::assertFalse($this->engine->upcoming($days, $now, 1, $tomorrow)[0]->recommendation->heatingOn, 'Allumage d’un autre jour : sans effet.');
+    }
+
     private function morning(DeltaModels $deltas, float $outdoor): \App\Recommendation\SlotRecommendation
     {
         return $this->engine->recommend([$this->forecastDay(['morning' => $outdoor])], $deltas, self::week())[0]->forSlot(DaySlot::Morning);

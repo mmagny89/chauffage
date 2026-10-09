@@ -126,10 +126,10 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertCount(4, $upcoming);
         // Il est 14 h : l'après-midi est en cours, puis soirée, nuit, matin suivant.
         self::assertStringContainsString('Après-midi · ven. 9 oct.', $upcoming->eq(0)->text());
-        self::assertStringContainsString('permettent de couper le chauffage', $upcoming->eq(0)->text());
+        self::assertStringContainsString('Couper · 14,5 °C dehors', $upcoming->eq(0)->text());
         self::assertStringContainsString('Nuit · ven. 9 oct.', $upcoming->eq(2)->text());
         self::assertStringContainsString('Matin · sam. 10 oct.', $upcoming->eq(3)->text());
-        self::assertStringContainsString('Attention, les températures sont de 8,5 °C : il faut mettre le chauffage à 19,0 °C.', $upcoming->eq(3)->text());
+        self::assertStringContainsString('Chauffer à 19,0 °C · 8,5 °C dehors', $upcoming->eq(3)->text());
     }
 
     public function testDistantDaysAreGreyedOut(): void
@@ -243,7 +243,8 @@ final class RecommendationControllerTest extends WebTestCase
 
         $global = $crawler->filter('#a-venir + ul li')->eq(0)->text();
         self::assertStringContainsString('Après-midi · ven. 9 oct.', $global);
-        self::assertStringContainsString('il faut mettre le chauffage', $global, 'Le foyer, en moyenne, chauffe.');
+        self::assertStringContainsString('Chauffer', $global, 'Le foyer, en moyenne, chauffe.');
+        self::assertStringNotContainsString('info :', $crawler->filter('main')->text(), 'Sans allumage noté, aucune information de consigne.');
 
         $matrix = $crawler->filter('#par-piece + div table');
         self::assertCount(1, $matrix);
@@ -256,6 +257,38 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertStringStartsWith('Salon', $rows->eq(1)->filter('th')->text());
         self::assertStringContainsString('Couper', $rows->eq(1)->filter('td')->eq(0)->text());
         self::assertStringContainsString('dedans ≈ 21 °C', $rows->eq(1)->filter('td')->eq(0)->text());
+    }
+
+    public function testHeatingNotedTodayMarksTodaysUpcomingSlotsOnlyAsChauffer(): void
+    {
+        // Cave : 13,7 °C estimés l'après-midi, cible 19 → on chauffe ; un allumage de la cave est noté aujourd'hui.
+        $user = $this->createUser('a@example.com', located: true);
+        $places = $this->addPlaceReadings($user, ['Salon' => 15.0, 'Cave' => 8.0]);
+        $this->em->persist(new \App\Entity\HeatingStart($places['Cave'], new \DateTimeImmutable('2026-10-09 07:00'), 21.0, 10.0, 6.0));
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        // « À venir » du foyer : aujourd'hui, « Chauffer » seul ; demain, la recommandation habituelle.
+        $crawler = $this->client->request('GET', '/recommandations');
+        $upcoming = $crawler->filter('#a-venir + ul li');
+        self::assertStringContainsString('Chauffer · 14,5 °C dehors', $upcoming->eq(0)->text());
+        self::assertStringNotContainsString('Chauffer à', $upcoming->eq(0)->text());
+        self::assertStringContainsString('Chauffer à 19,0 °C', $upcoming->eq(3)->text(), 'Samedi : pas concerné.');
+
+        // Le tableau des 15 jours dit toujours ce qu'il faut faire, avec la température.
+        self::assertStringContainsString('Chauffer à 19,0 °C', $crawler->filter('#quinze-jours + div tbody tr')->first()->text());
+
+        // Pièce par pièce : la cave, où l'on a chauffé, dit « Chauffer » ; le salon (Couper) ne change pas.
+        $cave = $crawler->filter('#par-piece + div tbody tr')->first();
+        self::assertStringStartsWith('Cave', $cave->filter('th')->text());
+        self::assertStringContainsString('Chauffer', $cave->filter('td')->eq(0)->text());
+        self::assertStringNotContainsString('Chauffer à', $cave->filter('td')->eq(0)->text());
+
+        // Vue de la cave : « Chauffer » seul aujourd'hui ; vue du salon : pas d'allumage chez lui.
+        $view = $this->client->request('GET', '/recommandations', ['piece' => (string) $places['Cave']->getId()]);
+        self::assertStringNotContainsString('Chauffer à', $view->filter('#a-venir + ul li')->eq(0)->text());
+        $salon = $this->client->request('GET', '/recommandations', ['piece' => (string) $places['Salon']->getId()]);
+        self::assertStringContainsString('Couper', $salon->filter('#a-venir + ul li')->eq(0)->text());
     }
 
     public function testARoomTargetReplacesTheHouseholdOneForThatRoomOnly(): void
@@ -277,7 +310,7 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertStringContainsString('Chauffer à 21,0 °C', $salon->eq(0)->text(), 'Salon, après-midi : 20,7 < 21.');
         self::assertStringContainsString('Couper', $cave->eq(3)->text(), 'Cave, matin de samedi : 10,1 ≥ 10.');
         // La vue du foyer ignore les cibles de pièce.
-        self::assertStringContainsString('à 19,0 °C', $crawler->filter('#a-venir + ul li')->eq(0)->text());
+        self::assertStringContainsString('visé 19,0 °C', $crawler->filter('#a-venir + ul li')->eq(0)->text());
 
         $view = $this->client->request('GET', '/recommandations', ['piece' => (string) $places['Salon']->getId()]);
         self::assertStringContainsString('visé 21,0 °C', $view->filter('tbody tr')->first()->filter('td')->eq(1)->text(), 'Après-midi du vendredi : cible de la pièce.');
@@ -321,10 +354,10 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertSame('page', $crawler->filter('nav[aria-label="Vue des recommandations"] a')->first()->attr('aria-current'));
     }
 
-    public function testASingleRoomAddsNeitherTabsNorMatrix(): void
+    public function testRoomsWithoutOwnTargetsGetNeitherTabsNorMatrix(): void
     {
         $user = $this->createUser('a@example.com', located: true);
-        $this->addPlaceReadings($user, ['Salon' => 15.0]);
+        $this->addPlaceReadings($user, ['Salon' => 15.0, 'Cave' => 8.0], targeted: false);
         $this->client->loginUser($user);
 
         $this->client->request('GET', '/recommandations');
@@ -334,12 +367,33 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertSelectorNotExists('#par-piece');
     }
 
+    public function testOneRoomWithOwnTargetsBringsAllRoomsIn(): void
+    {
+        $user = $this->createUser('a@example.com', located: true);
+        $targeted = $this->addPlaceReadings($user, ['Salon' => 15.0]);
+        $plain = $this->addPlaceReadings($user, ['Cave' => 8.0], targeted: false);
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/recommandations');
+
+        // Une seule pièce à températures propres suffit : toutes les pièces figurent alors.
+        self::assertSame(['Tout le foyer', 'Cave', 'Salon'], $crawler->filter('nav[aria-label="Vue des recommandations"] a')->each(static fn ($a) => $a->text()));
+        self::assertCount(2, $crawler->filter('#par-piece + div tbody tr'));
+
+        $this->client->request('GET', '/recommandations', ['piece' => (string) $targeted['Salon']->getId()]);
+        self::assertResponseIsSuccessful();
+
+        $this->client->request('GET', '/recommandations', ['piece' => (string) $plain['Cave']->getId()]);
+        self::assertResponseIsSuccessful();
+    }
+
     public function testRoomWithoutReadingsUsesTheHouseholdEstimateAndSaysSo(): void
     {
         $user = $this->createUser('a@example.com', located: true);
         $places = $this->addPlaceReadings($user, ['Salon' => 15.0, 'Cave' => 8.0]);
         $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $garage = new Place($household, 'Garage');
+        $garage->setTarget(\App\Enum\DaySlot::Night, 16.0);
         $this->em->persist($garage);
         $this->em->flush();
         $this->client->loginUser($user);
@@ -351,9 +405,10 @@ final class RecommendationControllerTest extends WebTestCase
 
         $view = $this->client->request('GET', '/recommandations', ['piece' => (string) $garage->getId()]);
         self::assertStringContainsString('Aucun relevé pour « Garage »', implode(' ', $view->filter('[role=status]')->each(static fn ($n) => $n->text())));
+        $estimate = static fn (string $cell): string => preg_match('/dedans ≈ \d+ °C/', $cell, $match) ? $match[0] : '';
         self::assertSame(
-            $crawler->filter('#quinze-jours + div tbody tr')->first()->filter('td')->eq(1)->text(),
-            $view->filter('#quinze-jours + div tbody tr')->first()->filter('td')->eq(1)->text(),
+            $estimate($crawler->filter('#quinze-jours + div tbody tr')->first()->filter('td')->eq(1)->text()),
+            $estimate($view->filter('#quinze-jours + div tbody tr')->first()->filter('td')->eq(1)->text()),
             'Même estimation que le foyer.',
         );
         self::assertNotNull($places['Salon']->getId());
@@ -411,13 +466,17 @@ final class RecommendationControllerTest extends WebTestCase
      *
      * @return array<string, Place>
      */
-    private function addPlaceReadings(User $user, array $indoorByPlace): array
+    private function addPlaceReadings(User $user, array $indoorByPlace, bool $targeted = true): array
     {
         $household = $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
         $places = [];
         foreach ($indoorByPlace as $name => $indoor) {
             $place = new Place($household, $name);
             $this->em->persist($place);
+            if ($targeted) {
+                // Une température propre (celle du foyer, 19 °C) : c'est elle qui donne à la pièce sa recommandation.
+                $place->setTarget(\App\Enum\DaySlot::Morning, 19.0);
+            }
             foreach (['03:00', '08:00', '14:00', '20:00'] as $time) {
                 $this->em->persist(new Reading($place, new \DateTimeImmutable('2026-10-08 '.$time), 5.0, $indoor));
             }

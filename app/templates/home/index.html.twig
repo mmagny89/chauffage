@@ -3,12 +3,39 @@
 {% block title %}Accueil{% endblock %}
 
 {% block body %}
+{% import 'partials/_icon.html.twig' as ui %}
 {% set calibrated = daysDone >= daysRequired %}
-<h1 class="mb-1 text-2xl font-semibold">Tableau de bord</h1>
-<p class="mb-6 text-slate-700">{{ household.city }}</p>
+<h1 class="mb-1 flex items-center gap-2 text-2xl font-semibold"><span class="text-amber-600">{{ ui.icon('flame', 'size-7') }}</span>Tableau de bord</h1>
+<p class="mb-6 flex items-center gap-1.5 text-slate-700">{{ ui.icon('pin') }}{{ household.city }}</p>
+
+{% if rooms %}
+    <section aria-labelledby="par-piece" class="mb-8">
+        <h2 id="par-piece" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('home', 'size-5') }}Pièce par pièce</h2>
+        <ul class="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-3">
+            {% for room in rooms %}
+                <li class="rounded-lg border border-slate-200 bg-white p-4">
+                    <h3 class="mb-3 flex items-center gap-2 font-semibold">
+                        {{ ui.icon(place_icon(room.place.name), 'size-5') }}
+                        <a href="{{ path('app_recommendations', {piece: room.place.id}) }}" class="underline-offset-2 hover:underline">{{ room.place.name }}</a>
+                    </h3>
+                    <ul class="space-y-2">
+                        {% for slot in room.slots %}
+                            <li class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                                <span class="text-sm leading-tight text-slate-700">{{ slot.label|split(' · ')|first }}<span class="sr-only"> · </span><span class="block text-xs text-slate-500">{{ slot.label|split(' · ')|last }}</span></span>
+                                <span class="flex min-w-36 justify-end">{% include 'recommendation/_badge.html.twig' with {item: slot.item} %}</span>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    {% if not room.hasReadings %}<p class="mt-3 text-xs text-slate-600">Aucun relevé ici : estimation du foyer.</p>{% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+        <p class="mt-3 text-sm"><a href="{{ path('app_recommendations') }}" class="underline underline-offset-2">Le détail et les quinze jours de chaque pièce</a></p>
+    </section>
+{% endif %}
 
 <section aria-labelledby="prochaine-etape" class="mb-8 rounded-lg border border-slate-200 bg-white p-5">
-    <h2 id="prochaine-etape" class="mb-3 text-lg font-semibold">Où j’en suis</h2>
+    <h2 id="prochaine-etape" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('target', 'size-5') }}Où j’en suis</h2>
 
     <div role="progressbar" aria-labelledby="prochaine-etape" aria-valuemin="0" aria-valuemax="{{ daysRequired }}" aria-valuenow="{{ min(daysDone, daysRequired) }}"
          aria-valuetext="{{ daysDone }} jour{{ daysDone > 1 ? 's' : '' }} de relevés sur {{ daysRequired }}" class="mb-2 flex gap-1">
@@ -26,16 +53,16 @@
         {% endif %}
     </p>
     <div class="flex flex-col gap-3 sm:flex-row">
-        <a href="{{ path('app_readings') }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 font-medium {{ calibrated ? 'border border-slate-500 bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-slate-700' }}">Saisir un relevé</a>
+        <a href="{{ path('app_readings') }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 font-medium {{ calibrated ? 'border border-slate-500 bg-white text-slate-900 hover:bg-slate-100' : 'bg-slate-900 text-white hover:bg-slate-700' }}">{{ ui.icon('plus') }}Saisir un relevé</a>
         {% if hasReadings %}
-            <a href="{{ path('app_recommendations') }}" class="inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 font-medium {{ calibrated ? 'bg-slate-900 text-white hover:bg-slate-700' : 'border border-slate-500 bg-white text-slate-900 hover:bg-slate-100' }}">Voir les recommandations</a>
+            <a href="{{ path('app_recommendations') }}" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-4 py-2 font-medium {{ calibrated ? 'bg-slate-900 text-white hover:bg-slate-700' : 'border border-slate-500 bg-white text-slate-900 hover:bg-slate-100' }}">{{ ui.icon('flame') }}Voir les recommandations</a>
         {% endif %}
     </div>
 </section>
 
 {% if upcoming %}
     <section aria-labelledby="a-venir" class="mb-8">
-        <h2 id="a-venir" class="mb-3 text-lg font-semibold">À venir</h2>
+        <h2 id="a-venir" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('calendar', 'size-5') }}{% if rooms %}Tout le foyer{% else %}À venir{% endif %}</h2>
         <ul class="grid gap-3 sm:grid-cols-2">
             {% for entry in upcoming %}
                 <li class="rounded-lg border border-slate-200 bg-white p-4">
@@ -44,23 +71,23 @@
                 </li>
             {% endfor %}
         </ul>
-        <p class="mt-3 text-sm"><a href="{{ path('app_recommendations') }}" class="underline underline-offset-2">Toutes les recommandations, pièce par pièce</a></p>
+        <p class="mt-3 text-sm"><a href="{{ path('app_recommendations') }}" class="underline underline-offset-2">Toutes les recommandations</a></p>
     </section>
 {% endif %}
 
 <section aria-labelledby="acces">
-    <h2 id="acces" class="mb-3 text-lg font-semibold">Accès rapide</h2>
+    <h2 id="acces" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('arrowright', 'size-5') }}Accès rapide</h2>
     <ul class="grid gap-3 sm:grid-cols-2">
         {% set links = [
-            {path: 'app_readings', title: 'Relevés', text: 'Noter les températures de vos pièces, chauffage éteint.'},
-            {path: 'app_recommendations', title: 'Recommandations', text: 'Chauffer ou couper, jour par jour et pièce par pièce.'},
-            {path: 'app_deltas', title: 'Écarts', text: 'De combien chaque pièce reste plus chaude que le dehors.'},
-            {path: 'app_forecast', title: 'Prévisions', text: 'Les températures extérieures des quinze prochains jours.'},
+            {path: 'app_readings', icon: 'thermometer', title: 'Relevés', text: 'Noter les températures de vos pièces, chauffage éteint.'},
+            {path: 'app_recommendations', icon: 'flame', title: 'Recommandations', text: 'Chauffer ou couper, jour par jour et pièce par pièce.'},
+            {path: 'app_deltas', icon: 'gap', title: 'Écarts', text: 'De combien chaque pièce reste plus chaude que le dehors.'},
+            {path: 'app_forecast', icon: 'cloud', title: 'Prévisions', text: 'Les températures extérieures des quinze prochains jours.'},
         ] %}
         {% for link in links %}
             <li>
                 <a href="{{ path(link.path) }}" class="block h-full rounded-lg border border-slate-200 bg-white p-4 hover:border-slate-500 hover:bg-slate-50">
-                    <span class="block font-semibold text-slate-900">{{ link.title }}</span>
+                    <span class="flex items-center gap-2 font-semibold text-slate-900"><span class="text-amber-600">{{ ui.icon(link.icon, 'size-5') }}</span>{{ link.title }}</span>
                     <span class="mt-1 block text-sm text-slate-700">{{ link.text }}</span>
                 </a>
             </li>

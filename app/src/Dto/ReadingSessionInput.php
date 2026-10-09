@@ -29,4 +29,12 @@ final class ReadingSessionInput
      * @var array<string, float|null>
      */
     public array $indoor = [];
+
+    /**
+     * Consigne réglée par lieu où l'on allume le chauffage juste après ce relevé, indexée comme
+     * `$indoor` ; absente ou null pour un lieu où l'on n'allume pas.
+     *
+     * @var array<string, float|null>
+     */
+    public array $setpoints = [];
 }
