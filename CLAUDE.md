@@ -129,6 +129,12 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   sans relevé reçoit l'estimation du foyer, signalée. Un identifiant de pièce inconnu ou d'un autre
   foyer est une 404 ; la vue d'ensemble reste la moyenne de tous les relevés, qui peut masquer une
   pièce plus froide que les autres.
+- **Volets** (`App\Shutter`, carte « Volets » du tableau de bord, aujourd'hui et demain) : indication d'**hiver**
+  seulement, pour tout le foyer, sans relevé ni orientation. `ShutterAdvisor` (calcul pur) : moyenne du jour
+  ≥ 15 °C (`COLD_BELOW_TENTHS`) → rien à signaler ; sinon, soleil ≥ la moitié du jour (`SUNNY_SHARE`) → ouvrir au
+  lever ; sinon, volets fermés possibles ; fermer au coucher dans les deux cas froids. **Les deux seuils sont des
+  hypothèses**, pas des mesures. Données : Open-Meteo `daily` (lever, coucher, ensoleillement, moyenne), cache 1 h,
+  séparé des prévisions horaires ; une panne masque la carte sans casser la page.
 - **Prévisions** : 16 jours demandés à Open-Meteo, 15 affichés (pour que la 15ᵉ nuit soit
   complète) ; cache 1 h par position arrondie à 0,01°.
 

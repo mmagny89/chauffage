@@ -16,6 +16,7 @@ use App\Repository\ReadingRepository;
 use App\Service\Calibration;
 use App\Service\DateLabels;
 use App\Service\HouseholdProvider;
+use App\Shutter\ShutterService;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,7 @@ final class HomeController extends AbstractController
         HouseholdProvider $households,
         RecommendationService $recommendations,
         RecommendationEngine $engine,
+        ShutterService $shutters,
         ReadingRepository $readings,
         PlaceRepository $placeRepository,
         DateLabels $labels,
@@ -71,7 +73,16 @@ final class HomeController extends AbstractController
             }
         }
 
+        // Indépendant des relevés : il suffit que le foyer ait une ville.
+        $shutterAdvice = [];
+        try {
+            $shutterAdvice = $shutters->forHousehold($household);
+        } catch (HouseholdNotLocatedException|ForecastUnavailableException) {
+            // Pas d'indication plutôt qu'un tableau de bord cassé.
+        }
+
         return $this->render('home/index.html.twig', [
+            'shutters' => $shutterAdvice,
             'household' => $household,
             'daysDone' => $readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,

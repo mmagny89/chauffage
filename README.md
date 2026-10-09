@@ -55,6 +55,7 @@ quotidien (nécessite un worker).
 | **Lieux et relevés** | Lieux déclarés dans les réglages ; un relevé renseigne tous les lieux ; jauge de calibrage (cinq jours). |
 | **Écarts** | Moyenne par lieu et par moment de la journée ; modèle retenu et sa formule. |
 | **Prévisions** | Quinze jours, par moment de la journée, via Open-Meteo. |
+| **Volets** | Indication d'hiver pour aujourd'hui et demain : ouvrir au soleil, fermer au coucher. |
 | **Recommandations** | Chauffer ou couper, par jour et par créneau, pour le foyer et pour chaque pièce, avec les avertissements de fiabilité. |
 
 ## Démarrer en local
