@@ -92,6 +92,28 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertStringContainsString('Chauffer à 17,0 °C', $cells->eq(3)->text(), 'Nuit : 16,5 sous la cible de 17.');
     }
 
+    public function testEveryDayAlsoHasAPhoneCardWithTheSameContent(): void
+    {
+        $user = $this->createUser('a@example.com', located: true);
+        $this->addReadingsEverySlot($user, ['2026-10-08']);
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/recommandations');
+
+        // Le tableau est réservé aux écrans larges, les cartes aux téléphones : un seul des deux est affiché.
+        self::assertStringContainsString('md:block', (string) $crawler->filter('table')->ancestors()->first()->attr('class'));
+        self::assertStringContainsString('hidden', (string) $crawler->filter('table')->ancestors()->first()->attr('class'));
+        $cards = $crawler->filter('article[aria-labelledby^=jour-]');
+        self::assertCount(15, $cards);
+        self::assertSame('ven. 9 oct.', $cards->first()->filter('h3')->text());
+        self::assertSame(['Matin', 'Après-midi', 'Soirée', 'Nuit'], $cards->first()->filter('dt')->each(static fn ($dt) => $dt->text()));
+        self::assertSame(
+            $crawler->filter('tbody tr')->first()->filter('td')->eq(0)->text(),
+            $cards->first()->filter('dd')->eq(0)->text(),
+            'Même contenu que la première case du tableau.',
+        );
+    }
+
     public function testUpcomingSlotsUseTheWordingOfTheBrief(): void
     {
         $user = $this->createUser('a@example.com', located: true);

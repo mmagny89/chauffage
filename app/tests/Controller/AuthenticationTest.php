@@ -106,7 +106,7 @@ final class AuthenticationTest extends WebTestCase
         $this->register(strtoupper(self::EMAIL), self::PASSWORD);
 
         self::assertResponseStatusCodeSame(422);
-        self::assertSelectorTextContains('ul', 'Un compte existe déjà');
+        self::assertSelectorTextContains('main form ul', 'Un compte existe déjà');
     }
 
     public function testPasswordResetFlow(): void

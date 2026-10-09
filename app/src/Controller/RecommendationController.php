@@ -13,6 +13,7 @@ use App\Recommendation\RecommendationService;
 use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
 use App\Service\Calibration;
+use App\Service\DateLabels;
 use App\Service\HouseholdProvider;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -39,6 +40,7 @@ final class RecommendationController extends AbstractController
         RecommendationEngine $engine,
         ReadingRepository $readings,
         ClockInterface $clock,
+        DateLabels $labels,
         #[CurrentUser] User $user,
     ): Response {
         $household = $households->forUser($user);
@@ -61,18 +63,18 @@ final class RecommendationController extends AbstractController
         $householdDays = $set->household ?? [];
         $days = null !== $selected ? ($set->places[(int) $selected->getId()] ?? []) : $householdDays;
 
-        $dayFormatter = new \IntlDateFormatter('fr_FR', \IntlDateFormatter::NONE, \IntlDateFormatter::NONE, $timezone, null, 'EEE d MMM');
+        $dayLabel = static fn (\DateTimeInterface $date): string => $labels->shortDay($date, $household->getTimezone());
         $now = new \DateTimeImmutable($clock->now()->setTimezone($timezone)->format('Y-m-d H:i:s'));
 
         $rows = [];
         foreach ($days as $index => $day) {
             $rows[] = [
-                'label' => (string) $dayFormatter->format($day->date),
+                'label' => $dayLabel($day->date),
                 'day' => $day,
                 'distant' => $index >= self::RELIABLE_DAYS,
             ];
         }
-        $label = static fn ($slot): string => $slot->recommendation->slot->label().' · '.$dayFormatter->format($slot->date);
+        $label = fn ($slot): string => $slot->recommendation->slot->label().' · '.$dayLabel($slot->date);
         $upcoming = array_map(
             static fn ($slot): array => ['label' => $label($slot), 'item' => $slot->recommendation],
             $engine->upcoming($days, $now, self::UPCOMING),

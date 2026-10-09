@@ -14,32 +14,12 @@
             {% block importmap %}{{ importmap('app', {nonce: csp_nonce}) }}{% endblock %}
         {% endblock %}
     </head>
-    <body class="min-h-full bg-slate-50 font-sans text-slate-900 antialiased">
-        <a href="#contenu" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:shadow">Aller au contenu</a>
+    <body class="flex min-h-full flex-col bg-slate-50 font-sans text-slate-900 antialiased">
+        <a href="#contenu" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:shadow">Aller au contenu</a>
 
-        <header class="border-b border-slate-200 bg-white">
-            <div class="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
-                <a href="{{ path('app_home') }}" class="text-lg font-semibold">🔥 Chauffage</a>
-                <nav aria-label="Compte">
-                    {% if is_granted('ROLE_USER') %}
-                        {% if not app.request.attributes.get('setup_pending') %}
-                        <a href="{{ path('app_recommendations') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Recommandations</a>
-                        <a href="{{ path('app_readings') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Relevés</a>
-                        <a href="{{ path('app_deltas') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Écarts</a>
-                        <a href="{{ path('app_forecast') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Prévisions</a>
-                        {% endif %}
-                        <a href="{{ path('app_settings') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Réglages</a>
-                        <span class="mr-3 hidden text-sm text-slate-600 sm:inline">{{ app.user.userIdentifier }}</span>
-                        <a href="{{ logout_path() }}" class="text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Se déconnecter</a>
-                    {% else %}
-                        <a href="{{ path('app_login') }}" class="mr-4 text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Se connecter</a>
-                        <a href="{{ path('app_register') }}" class="text-sm font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900">Créer un compte</a>
-                    {% endif %}
-                </nav>
-            </div>
-        </header>
+        {% include 'partials/_header.html.twig' %}
 
-        <main id="contenu" class="mx-auto max-w-4xl px-4 py-8">
+        <main id="contenu" class="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
             {% for type, messages in app.flashes %}
                 {% for message in messages %}
                     <div role="{{ type == 'error' ? 'alert' : 'status' }}" class="mb-6 rounded-md border px-4 py-3 text-sm {{ type == 'error' ? 'border-red-300 bg-red-50 text-red-900' : (type == 'info' ? 'border-sky-300 bg-sky-50 text-sky-950' : 'border-emerald-300 bg-emerald-50 text-emerald-900') }}">{{ message }}</div>
@@ -48,5 +28,12 @@
 
             {% block body %}{% endblock %}
         </main>
+
+        <footer class="border-t border-slate-200 bg-white">
+            <div class="mx-auto flex max-w-5xl flex-col gap-1 px-4 py-4 text-xs text-slate-600 sm:flex-row sm:justify-between">
+                <p>Chauffage · projet personnel</p>
+                <p>Météo : <a href="https://open-meteo.com/" class="underline underline-offset-2">Open-Meteo</a> (<a href="https://creativecommons.org/licenses/by/4.0/" class="underline underline-offset-2">CC BY 4.0</a>) · localisation : GeoNames</p>
+            </div>
+        </footer>
     </body>
 </html>

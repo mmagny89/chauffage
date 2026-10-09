@@ -19,22 +19,22 @@
         </div>
     {% endif %}
 
-    <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+    <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
         <table class="w-full text-left text-sm">
             <caption class="sr-only">Écart moyen intérieur moins extérieur, par lieu et par créneau de la journée</caption>
             <thead class="bg-slate-100 text-slate-700">
                 <tr>
                     <th scope="col" class="px-4 py-3 font-semibold">Lieu</th>
-                    <th scope="col" class="px-4 py-3 text-right font-semibold">Moyenne</th>
+                    <th scope="col" class="whitespace-nowrap px-4 py-3 text-right font-semibold">Moyenne</th>
                     {% for slot in slots %}
-                        <th scope="col" class="px-4 py-3 text-right font-semibold">{{ slot.label }}</th>
+                        <th scope="col" class="whitespace-nowrap px-4 py-3 text-right font-semibold">{{ slot.label }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
                 {% for place in report.places %}
                     <tr class="border-t border-slate-100">
-                        <th scope="row" class="px-4 py-3 font-medium">{{ place.placeName }}</th>
+                        <th scope="row" class="sticky left-0 bg-white px-4 py-3 font-medium">{{ place.placeName }}</th>
                         <td class="px-4 py-3 text-right">{% include 'delta/_cell.html.twig' with {delta: place.overall} %}</td>
                         {% for slot in slots %}
                             <td class="px-4 py-3 text-right">{% include 'delta/_cell.html.twig' with {delta: place.forSlot(slot)} %}</td>
@@ -44,7 +44,7 @@
             </tbody>
             <tfoot>
                 <tr class="border-t border-slate-300 bg-slate-50">
-                    <th scope="row" class="px-4 py-3 font-semibold">{{ report.household.placeName }}</th>
+                    <th scope="row" class="sticky left-0 bg-slate-50 px-4 py-3 font-semibold">{{ report.household.placeName }}</th>
                     <td class="px-4 py-3 text-right">{% include 'delta/_cell.html.twig' with {delta: report.household.overall} %}</td>
                     {% for slot in slots %}
                         <td class="px-4 py-3 text-right">{% include 'delta/_cell.html.twig' with {delta: report.household.forSlot(slot)} %}</td>
@@ -59,7 +59,7 @@
         <h2 id="modele" class="mb-2 text-lg font-semibold">Modèle utilisé pour les recommandations</h2>
         <p class="mb-4 max-w-3xl text-sm text-slate-700">Sans chauffage, l’intérieur suit le dehors de façon amortie : plus il fait froid dehors, plus l’écart grandit, et il se réduit quand il fait doux. Un écart mesuré par temps froid ne vaut donc pas par temps doux. L’outil mesure cette pente sur vos relevés ; tant qu’ils sont peu nombreux ou pris à des températures proches, il la complète par la pente typique d’un logement sans chauffage ({{ typicalSlope|number_format(2, ',') }}), recalée sur vos mesures. Plus vos relevés sont nombreux et variés, plus la pente est la vôtre.</p>
 
-        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table class="w-full text-left text-sm">
                 <caption class="sr-only">Modèle d’écart retenu pour chaque moment de la journée</caption>
                 <thead class="bg-slate-100 text-slate-700">
@@ -74,7 +74,7 @@
                     {% for slot in slots %}
                         {% set model = models.forSlot(slot) %}
                         <tr class="border-t border-slate-100">
-                            <th scope="row" class="px-4 py-3 align-top font-medium">{{ slot.label }}</th>
+                            <th scope="row" class="sticky left-0 bg-white px-4 py-3 align-top font-medium">{{ slot.label }}</th>
                             {% if model is null %}
                                 <td class="px-4 py-3 align-top">0</td>
                                 <td class="px-4 py-3 align-top">—</td>
@@ -87,7 +87,7 @@
                 </tbody>
                 <tfoot>
                     <tr class="border-t border-slate-300 bg-slate-50">
-                        <th scope="row" class="px-4 py-3 align-top font-semibold">Tous les créneaux</th>
+                        <th scope="row" class="sticky left-0 bg-slate-50 px-4 py-3 align-top font-semibold">Tous les créneaux</th>
                         {% include 'delta/_model_cells.html.twig' with {model: models.overall} %}
                     </tr>
                 </tfoot>

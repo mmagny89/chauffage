@@ -39,6 +39,9 @@ logement non chauffé tant que ceux-ci sont peu nombreux ou pris à des tempéra
 Plus vos relevés sont nombreux et variés, plus la pente est la vôtre. Le détail et les règles
 qui s'y rattachent sont dans [`CLAUDE.md`](CLAUDE.md).
 
+L'interface s'adapte du téléphone au grand écran (menu repliable, cartes par jour, grilles de saisie) et
+vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 px, contrastes vérifiés.
+
 ## État du projet
 
 Utilisable de bout en bout ; pas encore de version étiquetée (voir le

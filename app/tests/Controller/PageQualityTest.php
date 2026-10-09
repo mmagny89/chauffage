@@ -69,6 +69,84 @@ final class PageQualityTest extends WebTestCase
         $this->assertPageQuality($crawler);
     }
 
+    public function testMenuIsAccessibleAndProgressivelyEnhanced(): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', '/ecarts');
+
+        // Sans JavaScript le menu est déployé et le bouton caché ; le contrôleur Stimulus bascule ensuite.
+        $button = $crawler->filter('header button[data-menu-target=button]');
+        self::assertCount(1, $button);
+        self::assertNotNull($button->attr('hidden'), 'Sans JavaScript, pas de bouton inutile.');
+        self::assertSame('menu-principal', $button->attr('aria-controls'));
+        self::assertSame('false', $button->attr('aria-expanded'));
+        self::assertCount(1, $crawler->filter('#menu-principal[data-menu-target=panel]'));
+        self::assertCount(1, $crawler->filter('header[data-controller=menu]'));
+        self::assertNull($crawler->filter('#menu-principal')->attr('hidden'), 'Le panneau est visible tant que le JavaScript n’a pas tourné.');
+
+        $links = $crawler->filter('nav[aria-label="Navigation principale"] a')->each(static fn ($a) => $a->text());
+        self::assertSame(['Recommandations', 'Relevés', 'Écarts', 'Prévisions', 'Réglages'], $links);
+
+        $current = $crawler->filter('nav[aria-label="Navigation principale"] a[aria-current=page]');
+        self::assertCount(1, $current, 'Une seule page courante.');
+        self::assertSame('Écarts', $current->text());
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function currentPages(): iterable
+    {
+        yield 'recommandations' => ['/recommandations', 'Recommandations'];
+        yield 'relevés' => ['/releves', 'Relevés'];
+        yield 'écarts' => ['/ecarts', 'Écarts'];
+        yield 'prévisions' => ['/previsions', 'Prévisions'];
+        yield 'réglages' => ['/reglages', 'Réglages'];
+    }
+
+    #[DataProvider('currentPages')]
+    public function testMenuMarksTheCurrentPage(string $path, string $label): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', $path);
+
+        self::assertSame($label, $crawler->filter('nav[aria-label="Navigation principale"] a[aria-current=page]')->text());
+    }
+
+    public function testHomeHasNoCurrentPageInTheMenuButStillHasTheNavigation(): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', '/');
+
+        self::assertCount(0, $crawler->filter('nav[aria-label="Navigation principale"] a[aria-current=page]'));
+        self::assertCount(5, $crawler->filter('nav[aria-label="Navigation principale"] a'));
+    }
+
+    public function testAnonymousVisitorsGetNoMenuButton(): void
+    {
+        $crawler = $this->client->request('GET', '/login');
+
+        self::assertCount(0, $crawler->filter('button[data-menu-target=button]'));
+        self::assertSame(['Se connecter', 'Créer un compte'], $crawler->filter('nav[aria-label="Navigation principale"] a')->each(static fn ($a) => $a->text()));
+        self::assertSame('Se connecter', $crawler->filter('nav a[aria-current=page]')->text());
+    }
+
+    public function testHeaderTouchTargetsAreLargeEnough(): void
+    {
+        $this->client->loginUser($this->richHousehold());
+
+        $crawler = $this->client->request('GET', '/ecarts');
+
+        // Cible tactile d'au moins 44 px (min-h-11), au-delà des 24 px exigés par WCAG 2.2 (2.5.8).
+        foreach ($crawler->filter('header nav a, header a[href$="/logout"], header button') as $element) {
+            \assert($element instanceof \DOMElement);
+            self::assertStringContainsString('min-h-11', $element->getAttribute('class'), trim($element->textContent));
+        }
+    }
+
     public function testRoomViewIsAccessibleAndCspFriendly(): void
     {
         $user = $this->richHousehold();

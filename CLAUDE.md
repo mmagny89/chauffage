@@ -121,6 +121,25 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 - Emails **synchrones** : aucun worker en v1. La recette Messenger les routait vers un
   transport asynchrone sans consommateur, donc ils ne partaient jamais.
 
+## Interface
+
+- **Mobile d'abord, trois niveaux** : téléphone (< 768 px), tablette (768–1023 px), bureau (≥ 1024 px). Le menu
+  (`partials/_header.html.twig` + contrôleur Stimulus `menu`) est replié derrière un bouton **sous 1024 px** ;
+  sans JavaScript il reste déployé (le bouton est `hidden` tant que le JS n'a pas tourné). Page courante :
+  `aria-current="page"`. Pendant la mise en route le menu ne propose que les réglages.
+- **Un tableau large est doublé de cartes pour téléphone** : `hidden md:block` sur le tableau, `md:hidden` sur des
+  `<article>` (un par jour, `<dl>`). Même contenu, un seul affiché (l'autre est en `display: none`, donc absent des
+  lecteurs d'écran). Les tableaux plus petits défilent (`relative overflow-x-auto`, première colonne `sticky`).
+- **`relative` obligatoire sur un conteneur `overflow-x-auto`** : un `sr-only` (position absolue) dans une cellule
+  échappe sinon au conteneur et fait déborder toute la page horizontalement.
+- **Une grille de champs, pas un tableau, pour les saisies** (`settings/_target_grid.html.twig`) : un groupe
+  `role="group"` par ligne, étiquettes visibles sur téléphone et en en-têtes de colonne à partir de `md`. Un
+  tableau dupliqué enverrait chaque champ deux fois.
+- Cibles tactiles ≥ 44 px (`min-h-11`), focus visible global (`app.css`), pas d'animation hors préférence.
+- **Vérifier le responsive dans le vrai navigateur** : l'extension Chrome ne redimensionne pas sa fenêtre. On rend
+  la page dans une iframe `srcdoc` de la largeur voulue (les media queries s'appliquent à l'iframe) et on mesure
+  `documentElement.scrollWidth`. Un test PHP ne voit pas un débordement.
+
 ## Pièges connus
 
 Les pièges du rendu Twig/Stimulus/Turbo sont aussi réunis, avec leurs raisons, en §24 de
