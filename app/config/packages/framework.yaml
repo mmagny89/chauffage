@@ -12,6 +12,11 @@ framework:
                 base_uri: 'https://geocoding-api.open-meteo.com/'
                 timeout: 5
                 max_duration: 10
+            # Prévisions horaires d'Open-Meteo (https://open-meteo.com/en/docs).
+            forecast.client:
+                base_uri: 'https://api.open-meteo.com/'
+                timeout: 8
+                max_duration: 15
 
     rate_limiter:
         geocoding:

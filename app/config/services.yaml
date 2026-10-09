@@ -28,6 +28,10 @@ when@test:
         App\Tests\Support\FakeGeocoder: ~
         App\Geocoding\GeocoderInterface: '@App\Tests\Support\FakeGeocoder'
 
+        App\Tests\Support\FakeForecastProvider:
+            autowire: true
+        App\Forecast\HourlyTemperatureProviderInterface: '@App\Tests\Support\FakeForecastProvider'
+
         App\Tests\Support\NoLeakHttpClient: ~
 
         # Les limiteurs de débit gardent leur état entre deux exécutions : les tests le vident.
