@@ -10,6 +10,8 @@ règles métier et des pièges déjà payés vit dans [`CLAUDE.md`](CLAUDE.md).
 
 ## [Non publié]
 
+## [0.2.0] - 2026-10-09
+
 ### Ajouté
 
 - **Volets** : une carte du tableau de bord dit, pour aujourd'hui et demain, quand ouvrir et fermer les volets

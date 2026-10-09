@@ -44,7 +44,7 @@ vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 p
 
 ## État du projet
 
-Utilisable de bout en bout, version **0.1.0** (voir le [journal des versions](CHANGELOG.md)) ;
+Utilisable de bout en bout, version **0.2.0** (voir le [journal des versions](CHANGELOG.md)) ;
 pas encore d'environnement de pré-production ni de production. Prévu ensuite : alertes par email et récapitulatif
 quotidien (nécessite un worker).
 
