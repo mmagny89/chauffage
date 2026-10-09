@@ -1,0 +1,108 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controller;
+
+use App\Dto\CityChoiceInput;
+use App\Dto\TargetsInput;
+use App\Entity\User;
+use App\Enum\DaySlot;
+use App\Form\TargetsType;
+use App\Geocoding\GeocoderInterface;
+use App\Geocoding\GeocodingUnavailableException;
+use App\Service\HouseholdProvider;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
+use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+
+#[Route('/reglages')]
+final class SettingsController extends AbstractController
+{
+    public function __construct(
+        private readonly HouseholdProvider $households,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly RateLimiterFactoryInterface $geocodingLimiter,
+    ) {
+    }
+
+    #[Route('', name: 'app_settings', methods: ['GET', 'POST'])]
+    public function index(Request $request, GeocoderInterface $geocoder, #[CurrentUser] User $user): Response
+    {
+        $household = $this->households->forUser($user);
+
+        $targets = new TargetsInput();
+        foreach (DaySlot::cases() as $slot) {
+            $targets->{$slot->value} = $household->targetFor($slot)->getTemperature();
+        }
+        $form = $this->createForm(TargetsType::class, $targets);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            foreach (DaySlot::cases() as $slot) {
+                $household->targetFor($slot)->setTemperature((float) $targets->for($slot));
+            }
+            $this->entityManager->flush();
+            $this->addFlash('success', 'Températures visées enregistrées.');
+
+            return $this->redirectToRoute('app_settings');
+        }
+
+        $query = trim((string) $request->query->get('q', ''));
+        $results = [];
+        $searchError = null;
+        if ('' !== $query) {
+            if (!$this->geocodingLimiter->create($user->getUserIdentifier())->consume()->isAccepted()) {
+                $searchError = 'Trop de recherches : réessayez dans quelques minutes.';
+            } else {
+                try {
+                    $results = $geocoder->search($query);
+                } catch (GeocodingUnavailableException) {
+                    $searchError = 'La recherche de ville est momentanément indisponible. Réessayez plus tard.';
+                }
+            }
+        }
+
+        return $this->render('settings/index.html.twig', [
+            'household' => $household,
+            'form' => $form,
+            'query' => $query,
+            'results' => $results,
+            'searchError' => $searchError,
+        ], new Response(status: $form->isSubmitted() && !$form->isValid() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK));
+    }
+
+    #[Route('/ville', name: 'app_settings_city', methods: ['POST'])]
+    public function chooseCity(Request $request, ValidatorInterface $validator, #[CurrentUser] User $user): Response
+    {
+        if (!$this->isCsrfTokenValid('choose-city', (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Action refusée : le jeton de sécurité a expiré. Relancez la recherche.');
+
+            return $this->redirectToRoute('app_settings');
+        }
+
+        $choice = new CityChoiceInput();
+        $choice->label = (string) $request->request->get('label');
+        $choice->latitude = is_numeric($request->request->get('latitude')) ? (float) $request->request->get('latitude') : null;
+        $choice->longitude = is_numeric($request->request->get('longitude')) ? (float) $request->request->get('longitude') : null;
+        $choice->timezone = (string) $request->request->get('timezone');
+
+        if (\count($validator->validate($choice)) > 0) {
+            $this->addFlash('error', 'Cette ville n’a pas pu être enregistrée. Relancez la recherche.');
+
+            return $this->redirectToRoute('app_settings');
+        }
+
+        \assert(null !== $choice->label && null !== $choice->latitude && null !== $choice->longitude && null !== $choice->timezone);
+        $this->households->forUser($user)->locate($choice->label, $choice->latitude, $choice->longitude, $choice->timezone);
+        $this->entityManager->flush();
+        $this->addFlash('success', \sprintf('Ville enregistrée : %s.', $choice->label));
+
+        return $this->redirectToRoute('app_settings');
+    }
+}

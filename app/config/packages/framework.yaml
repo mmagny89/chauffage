@@ -5,7 +5,19 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    http_client:
+        scoped_clients:
+            # API de géocodage d'Open-Meteo (https://open-meteo.com/en/docs/geocoding-api).
+            geocoding.client:
+                base_uri: 'https://geocoding-api.open-meteo.com/'
+                timeout: 5
+                max_duration: 10
+
     rate_limiter:
+        geocoding:
+            policy: sliding_window
+            limit: 30
+            interval: '1 hour'
         registration:
             policy: sliding_window
             limit: 5

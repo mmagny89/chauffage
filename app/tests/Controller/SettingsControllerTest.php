@@ -1,0 +1,254 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Controller;
+
+use App\Entity\Household;
+use App\Entity\User;
+use App\Enum\DaySlot;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
+
+final class SettingsControllerTest extends WebTestCase
+{
+    private KernelBrowser $client;
+    private EntityManagerInterface $em;
+
+    protected function setUp(): void
+    {
+        $this->client = static::createClient();
+        $this->em = self::getContainer()->get(EntityManagerInterface::class);
+        self::getContainer()->get('test.cache.rate_limiter')->clear();
+    }
+
+    public function testAnonymousVisitorIsSentToLogin(): void
+    {
+        $this->client->request('GET', '/reglages');
+
+        self::assertResponseRedirects('/login');
+    }
+
+    public function testShowsDefaultTargetsAndNoCity(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->client->request('GET', '/reglages');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', 'Aucune ville renseignée');
+        self::assertInputValueSame('targets[night]', '17.0');
+        self::assertInputValueSame('targets[morning]', '19.0');
+        self::assertInputValueSame('targets[afternoon]', '19.0');
+        self::assertInputValueSame('targets[evening]', '20.0');
+    }
+
+    public function testTargetsAreSaved(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/reglages');
+        $this->client->submitForm('Enregistrer', [
+            'targets[night]' => '16.5',
+            'targets[morning]' => '19',
+            'targets[afternoon]' => '18',
+            'targets[evening]' => '21.5',
+        ]);
+
+        self::assertResponseRedirects('/reglages');
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[role=status]', 'Températures visées enregistrées');
+
+        $household = $this->household($user);
+        self::assertSame(16.5, $household->targetFor(DaySlot::Night)->getTemperature());
+        self::assertSame(18.0, $household->targetFor(DaySlot::Afternoon)->getTemperature());
+        self::assertSame(21.5, $household->targetFor(DaySlot::Evening)->getTemperature());
+    }
+
+    public function testOutOfRangeTargetIsRefusedAndNothingChanges(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+
+        $this->client->request('GET', '/reglages');
+        $this->client->submitForm('Enregistrer', [
+            'targets[night]' => '3',
+            'targets[morning]' => '19',
+            'targets[afternoon]' => '19',
+            'targets[evening]' => '45',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+        self::assertSelectorTextContains('body', 'doit être comprise entre 5 et 30');
+        $this->em->clear();
+        self::assertSame(17.0, $this->household($user)->targetFor(DaySlot::Night)->getTemperature());
+    }
+
+    public function testCitySearchListsResultsWithRegion(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $crawler = $this->client->request('GET', '/reglages', ['q' => 'Lyon']);
+
+        self::assertSelectorTextContains('#resultats', '2 résultats');
+        $items = $crawler->filter('ul[aria-labelledby=resultats] li');
+        self::assertCount(2, $items);
+        self::assertStringContainsString('Lyon (Rhône, France)', $items->eq(0)->text());
+        self::assertStringContainsString('Lyon (Mississippi, États-Unis)', $items->eq(1)->text());
+    }
+
+    public function testCitySearchWithoutMatch(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->client->request('GET', '/reglages', ['q' => 'Atlantide']);
+
+        self::assertSelectorTextContains('[role=status]', 'Aucune ville ne correspond à « Atlantide »');
+    }
+
+    public function testCitySearchOutageIsReportedWithoutBreakingThePage(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        $this->client->request('GET', '/reglages', ['q' => 'Panne']);
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('[role=alert]', 'momentanément indisponible');
+        self::assertSelectorExists('form[name=targets]', 'Le reste de la page reste utilisable.');
+    }
+
+    public function testChoosingACityLocatesTheHousehold(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/reglages', ['q' => 'Lyon']);
+        $this->client->submit($this->choiceForm($crawler, 0));
+
+        self::assertResponseRedirects('/reglages');
+        $crawler = $this->client->followRedirect();
+        self::assertSelectorTextContains('[role=status]', 'Ville enregistrée : Lyon (Rhône, France).');
+        self::assertSelectorTextContains('body', 'Ville actuelle : Lyon (Rhône, France)');
+
+        $household = $this->household($user);
+        self::assertSame('Lyon (Rhône, France)', $household->getCity());
+        self::assertSame(45.74906, $household->getLatitude());
+        self::assertSame(4.84789, $household->getLongitude());
+        self::assertSame('Europe/Paris', $household->getTimezone());
+        self::assertNotNull($crawler);
+    }
+
+    public function testChoosingTheOtherCityKeepsItsTimezone(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/reglages', ['q' => 'Lyon']);
+        $this->client->submit($this->choiceForm($crawler, 1));
+
+        self::assertSame('America/Chicago', $this->household($user)->getTimezone());
+        self::assertSame(-90.54204, $this->household($user)->getLongitude());
+    }
+
+    public function testCityChoiceWithInvalidCsrfTokenIsRefused(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+
+        $this->client->request('POST', '/reglages/ville', $this->validChoice() + ['_token' => 'invalide']);
+
+        self::assertResponseRedirects('/reglages');
+        $this->em->clear();
+        self::assertNull($this->household($user)->getCity());
+    }
+
+    /**
+     *
+     * @param array<string, string> $override
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('tamperedChoices')]
+    public function testTamperedCityChoiceIsRefused(array $override): void
+    {
+        $user = $this->createUser('a@example.com');
+        $this->client->loginUser($user);
+        $crawler = $this->client->request('GET', '/reglages', ['q' => 'Lyon']);
+        $token = (string) $crawler->filter('input[name=_token]')->first()->attr('value');
+
+        $this->client->request('POST', '/reglages/ville', array_merge($this->validChoice(), $override, ['_token' => $token]));
+
+        self::assertResponseRedirects('/reglages');
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[role=status], [role=alert]', 'n’a pas pu être enregistrée');
+        $this->em->clear();
+        self::assertNull($this->household($user)->getCity());
+    }
+
+    /**
+     * @return iterable<string, array{array<string, string>}>
+     */
+    public static function tamperedChoices(): iterable
+    {
+        yield 'latitude hors limites' => [['latitude' => '123']];
+        yield 'longitude hors limites' => [['longitude' => '-200']];
+        yield 'latitude non numérique' => [['latitude' => 'abc']];
+        yield 'fuseau inconnu' => [['timezone' => 'Mars/Olympus']];
+        yield 'libellé vide' => [['label' => '']];
+        yield 'libellé trop long' => [['label' => str_repeat('x', 121)]];
+    }
+
+    public function testSearchIsRateLimited(): void
+    {
+        $this->client->loginUser($this->createUser('a@example.com'));
+
+        for ($i = 0; $i < 31; ++$i) {
+            $this->client->request('GET', '/reglages', ['q' => 'Atlantide']);
+        }
+
+        self::assertSelectorTextContains('[role=alert]', 'Trop de recherches');
+    }
+
+    public function testEachHouseholdHasItsOwnSettings(): void
+    {
+        $a = $this->createUser('a@example.com');
+        $b = $this->createUser('b@example.com');
+        $this->client->loginUser($a);
+        $crawler = $this->client->request('GET', '/reglages', ['q' => 'Lyon']);
+        $this->client->submit($this->choiceForm($crawler, 0));
+
+        $this->em->clear();
+
+        self::assertSame('Lyon (Rhône, France)', $this->household($a)->getCity());
+        self::assertNull($this->household($b)->getCity());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function validChoice(): array
+    {
+        return ['label' => 'Lyon (Rhône, France)', 'latitude' => '45.74906', 'longitude' => '4.84789', 'timezone' => 'Europe/Paris'];
+    }
+
+    private function choiceForm(Crawler $crawler, int $index): \Symfony\Component\DomCrawler\Form
+    {
+        return $crawler->filter('ul[aria-labelledby=resultats] li')->eq($index)->selectButton('Choisir')->form();
+    }
+
+    private function household(User $user): Household
+    {
+        return $this->em->getRepository(Household::class)->findOneBy(['user' => $user]) ?? throw new \LogicException('Foyer introuvable.');
+    }
+
+    private function createUser(string $email): User
+    {
+        $user = (new User())->setEmail($email)->setPassword('x')->setVerified(true);
+        $this->em->persist($user);
+        $this->em->persist(new Household($user));
+        $this->em->flush();
+
+        return $user;
+    }
+}

@@ -24,6 +24,10 @@ services:
 
 when@test:
     services:
+        # Aucun appel réseau en test : la recherche de ville est remplacée par un double.
+        App\Tests\Support\FakeGeocoder: ~
+        App\Geocoding\GeocoderInterface: '@App\Tests\Support\FakeGeocoder'
+
         App\Tests\Support\NoLeakHttpClient: ~
 
         # Les limiteurs de débit gardent leur état entre deux exécutions : les tests le vident.
