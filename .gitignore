@@ -1,0 +1,31 @@
+# Outillage de l'agence (agents, regles, bibliotheque de ressources,
+# scripts) : jamais committe dans le depot du projet. Exclusion cruciale,
+# pas seulement une preference — certains fichiers qui y transitent portent
+# des secrets reels (ex. .env.install.local d'un stack Drupal, jamais un
+# modele .dist), qui ne doivent jamais entrer dans l'historique git.
+.claude/
+
+# Configuration locale des IDE : propre a chaque poste.
+.idea/
+.vscode/
+
+# Secrets reels — jamais committes (conventions, section 3). Les .dist
+# restent committes.
+.env.staging.local
+.env.prod.local
+.env.*.local
+
+# Surcharges locales de l'application.
+app/.env.local*
+
+# Etat local de l'application PHP.
+app/var/
+app/vendor/
+
+# Resultat compile d'asset-map:compile. Utile en production, poison en
+# developpement : Caddy le sert directement et court-circuite Symfony, donc
+# AssetMapper et le bundle Tailwind. Se supprime sans risque, se regenere au
+# deploiement.
+app/public/assets/
+# macOS
+.DS_Store

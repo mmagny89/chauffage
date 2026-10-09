@@ -1,0 +1,53 @@
+# Override staging. Serveur partage : Traefik en frontal. Lancement toujours explicite :
+#   docker compose -f compose.yml -f compose.staging.yml --env-file .env.staging.local up -d --wait
+# --env-file REMPLACE le .env racine (conventions, section 3).
+services:
+  php:
+    build:
+      target: staging
+    image: chauffage-php:staging
+    environment:
+      APP_SECRET: ${APP_SECRET:?APP_SECRET est requis en staging (secret applicatif Symfony) — fournir via --env-file .env.staging.local}
+      # Adresse d'ecoute de Caddy DANS le conteneur — a ne pas confondre
+      # avec la variable ${SERVER_NAME} du fichier de secrets, qui porte
+      # le domaine et n'alimente que la regle Host de Traefik.
+      #
+      # Sans cette ligne, Caddy retombe sur le "localhost" par defaut du
+      # Caddyfile, active son propre HTTPS et repond 308 vers
+      # https://<domaine> a toute requete en clair. Traefik terminant
+      # deja le TLS et transmettant en clair sur le port 80, le
+      # navigateur boucle indefiniment. Le conteneur se declare pourtant
+      # "healthy", docker-healthcheck sondant le port 443 en l'absence
+      # de SERVER_NAME : la panne ne se voit qu'au navigateur.
+      SERVER_NAME: ":80"
+    # Serveur partage : pas de port public direct, Traefik route par
+    # domaine sur le reseau partage "traefik" (a creer une fois sur
+    # l'hote : docker network create traefik).
+    expose:
+      - "80"
+    networks:
+      - chauffage
+      - traefik
+      - monitoring
+    labels:
+      traefik.enable: "true"
+      # Le service est attache a deux reseaux : sans cette etiquette, Traefik
+      # choisit l'adresse a joindre parmi les deux sans garantie, et tombe une
+      # fois sur deux sur le reseau interne, injoignable pour lui (502).
+      traefik.docker.network: traefik
+      traefik.http.routers.chauffage-staging.rule: Host(`${SERVER_NAME:?SERVER_NAME est requis en staging (domaine route par Traefik) — fournir via --env-file .env.staging.local}`)
+      traefik.http.routers.chauffage-staging.entrypoints: websecure
+      traefik.http.routers.chauffage-staging.tls.certresolver: letsencrypt
+      traefik.http.services.chauffage-staging.loadbalancer.server.port: "80"
+
+  ember:
+    networks:
+      - chauffage
+      - monitoring
+
+networks:
+  chauffage:
+  traefik:
+    external: true
+  monitoring:
+    external: true

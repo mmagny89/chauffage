@@ -1,0 +1,90 @@
+# Socle commun a tous les environnements (conventions, section 1). Genere
+# par .claude/scripts/setup-symfony.sh.
+name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}
+
+services:
+  php:
+    container_name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-php
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      target: ${TARGET}
+      args:
+        PHP_VERSION: ${PHP_VERSION}
+        FRANKENPHP_VERSION: ${FRANKENPHP_VERSION}
+        PHP_EXTENSION_INSTALLER_VERSION: ${PHP_EXTENSION_INSTALLER_VERSION}
+        USER_ID: ${USER_ID}
+        GROUP_ID: ${GROUP_ID}
+    image: chauffage-php:${TARGET}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=${POSTGRES_VERSION}&charset=utf8
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS}
+      # Section 8b — la recette Flex depose MAILER_DSN=null://null, un
+      # transport qui accepte chaque message et le jette sans un mot.
+      MAILER_DSN: ${MAILER_DSN:?MAILER_DSN manquant — transport des emails, a declarer dans le fichier de secrets}
+      MAILER_FROM: ${MAILER_FROM:?MAILER_FROM manquant — adresse expeditrice des emails}
+      # Section 4 — sans elle, derriere un proxy qui termine le TLS, Symfony
+      # ignore X-Forwarded-Proto et fabrique ses URL en http:// sur un site
+      # en https. Sans deux-points avant le « ? » : la valeur vide est
+      # legitime en developpement, c'est l'oubli qui doit echouer.
+      SYMFONY_TRUSTED_PROXIES: ${SYMFONY_TRUSTED_PROXIES?SYMFONY_TRUSTED_PROXIES non declaree — vide en dev, private_ranges derriere un proxy}
+    volumes:
+      - chauffage-caddy-data:/data
+      - chauffage-caddy-config:/config
+      - chauffage-caddy-admin:/run/caddy
+    networks:
+      - chauffage
+    depends_on:
+      database:
+        condition: service_healthy
+
+  database:
+    container_name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-database
+    image: postgres:${POSTGRES_VERSION}-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # PostgreSQL 18+ : monter le repertoire parent, pas .../data
+      # (conventions, section 16 — verifier a chaque montee de version
+      # majeure, ce chemin n'est pas garanti stable).
+      - chauffage-database-data:/var/lib/postgresql
+    networks:
+      - chauffage
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Sans profil ici (conventions, section 9) : les overrides staging/prod
+  # lui en ajoutent un, jamais l'inverse.
+  ember:
+    container_name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-ember
+    image: ghcr.io/alexandre-daubois/ember:${EMBER_VERSION}
+    restart: unless-stopped
+    environment:
+      EMBER_ADDR: unix//run/caddy/admin.sock
+    volumes:
+      - chauffage-caddy-admin:/run/caddy
+    networks:
+      - chauffage
+    depends_on:
+      - php
+
+networks:
+  chauffage:
+    name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}
+
+volumes:
+  chauffage-caddy-data:
+    name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-caddy-data
+  chauffage-caddy-config:
+    name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-caddy-config
+  chauffage-caddy-admin:
+    name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-caddy-admin
+  chauffage-database-data:
+    name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-database-data

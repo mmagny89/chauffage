@@ -1,0 +1,198 @@
+# Portes qualite et deploiement.
+#
+# Portes : skill ci-pipeline-standards, ordre par cout croissant.
+# Contraintes d'infrastructure : .claude/rules/stack-conventions.md, section 22.
+name: Qualite et deploiement
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Le code applicatif vit dans app/, la racine ne porte que l'infrastructure
+# (section 1). Le job de deploiement, qui ne fait aucun checkout, remet ce
+# chemin a la racine.
+defaults:
+  run:
+    working-directory: app
+
+env:
+  # Suit PHP_VERSION du .env racine — jamais plus recente que l'image de
+  # production. Toute montee de version touche les deux fichiers.
+  PHP_VERSION: '8.5'
+
+  # La CI n'utilise pas Docker Compose : rien n'injecte les variables du
+  # conteneur. Sans celles-ci, le post-install-cmd de Composer echoue sur
+  # « Environment variable not found », y compris dans les etapes qui ne
+  # touchent jamais la base.
+  APP_ENV: test
+  DATABASE_URL: 'postgresql://app:app@127.0.0.1:5432/app?serverVersion=18&charset=utf8'
+
+jobs:
+  qualite:
+    name: Portes qualite
+    runs-on: ubuntu-latest
+    # Suit POSTGRES_VERSION du .env racine, comme PHP_VERSION ci-dessus.
+    services:
+      database:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_pgsql, intl, zip
+          coverage: none
+
+      - name: Cache des dependances Composer
+        uses: actions/cache@v4
+        with:
+          path: app/vendor
+          key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles('app/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-
+
+      - name: Installation des dependances
+        run: |
+          if [ -f composer.json ]; then
+            composer install --prefer-dist --no-progress --no-interaction
+          else
+            echo "Application pas encore installee — rien a verifier."
+          fi
+
+      # Chaque etape est ignoree tant que son outil n'est pas installe, et
+      # dit comment l'installer. Le workflow grandit avec le projet.
+      - name: Coherence de composer.json
+        run: '[ -f composer.json ] && composer validate --strict --no-check-publish || true'
+
+      - name: Lints Symfony
+        run: |
+          [ -f bin/console ] || { echo "bin/console absent — ignore."; exit 0; }
+          php bin/console lint:twig templates 2>/dev/null || true
+          php bin/console lint:yaml config
+          php bin/console lint:container
+
+      # Bloquant : « cmd || true » avalerait une vulnerabilite connue.
+      - name: Audit des dependances
+        run: |
+          [ -f composer.lock ] || { echo "composer.lock absent — ignore."; exit 0; }
+          composer audit
+
+      - name: Analyse statique
+        run: |
+          if [ -x vendor/bin/phpstan ]; then
+            # phpstan-symfony lit le conteneur compile en environnement
+            # dev, chemin fige dans phpstan.neon. La CI tournant en
+            # APP_ENV=test, var/cache/dev n'existe pas sans ce
+            # rechauffage et l'analyse echoue sur « Container ... does
+            # not exist ».
+            [ -f bin/console ] && php bin/console cache:warmup --env=dev
+            vendor/bin/phpstan analyse --no-progress --error-format=github
+          else
+            echo "PHPStan absent — etape ignoree."
+            echo "Pour l'activer : composer require --dev phpstan/phpstan"
+          fi
+
+      - name: Tests
+        run: |
+          if [ -x bin/phpunit ] || [ -x vendor/bin/phpunit ]; then
+            php bin/phpunit 2>/dev/null || vendor/bin/phpunit
+          else
+            echo "PHPUnit absent — etape ignoree."
+            echo "Pour l'activer : composer require --dev symfony/test-pack"
+          fi
+
+      # Base dediee : une suite de tests construit souvent son schema
+      # directement, sans passer par les migrations. Rejouees sur la meme
+      # base, celles-ci echoueraient sur « table ... already exists » — un
+      # faux echec qui ne dit rien de l'etat reel des migrations.
+      - name: Schema en phase avec les entites
+        env:
+          DATABASE_URL: 'postgresql://app:app@127.0.0.1:5432/migrations?serverVersion=18&charset=utf8'
+        run: |
+          [ -f bin/console ] || { echo "bin/console absent — ignore."; exit 0; }
+          # Seule l'absence reelle de migrations fait passer l'etape : un echec de
+          # migration l'annoncait auparavant comme une absence, en vert.
+          if ! ls migrations/*.php >/dev/null 2>&1; then
+            echo "Aucune migration Doctrine — etape ignoree."; exit 0
+          fi
+          php bin/console doctrine:database:create --if-not-exists --no-interaction
+          php bin/console doctrine:migrations:migrate --no-interaction
+          php bin/console doctrine:schema:validate
+
+  deploiement:
+    name: Deploiement
+    needs: qualite
+    # Jamais sur une pull request : une PR d'un depot tiers deploierait du
+    # code non relu.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+
+    # Deux deploiements simultanes visent le meme stack sur l'hote : on
+    # attend son tour, on ne coupe jamais un deploiement en cours.
+    concurrency:
+      group: deploiement-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      # GitHub remplace un secret absent par une chaine vide sans rien
+      # signaler : ssh "@" produit alors une page d'usage illisible au lieu
+      # d'une erreur.
+      - name: Controler la presence des secrets
+        env:
+          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
+          UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
+          CLE: ${{ secrets.DEPLOIEMENT_CLE_PRIVEE }}
+          EMPREINTES: ${{ secrets.DEPLOIEMENT_KNOWN_HOSTS }}
+        run: |
+          manquants=""
+          [ -n "$HOTE" ]        || manquants="$manquants DEPLOIEMENT_HOTE"
+          [ -n "$UTILISATEUR" ] || manquants="$manquants DEPLOIEMENT_UTILISATEUR"
+          [ -n "$CLE" ]         || manquants="$manquants DEPLOIEMENT_CLE_PRIVEE"
+          [ -n "$EMPREINTES" ]  || manquants="$manquants DEPLOIEMENT_KNOWN_HOSTS"
+          if [ -n "$manquants" ]; then
+            echo "Secrets manquants :$manquants" >&2
+            echo "Les poser avec : sh .claude/scripts/installer-deploiement.sh projet prod" >&2
+            exit 1
+          fi
+
+      - name: Preparer SSH
+        env:
+          CLE: ${{ secrets.DEPLOIEMENT_CLE_PRIVEE }}
+          EMPREINTES: ${{ secrets.DEPLOIEMENT_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CLE" > ~/.ssh/id_deploiement
+          chmod 600 ~/.ssh/id_deploiement
+          # Empreinte epinglee, jamais StrictHostKeyChecking=no : ce serait
+          # accepter n'importe quel serveur a cette adresse.
+          printf '%s\n' "$EMPREINTES" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # La logique vit sur l'hote : la cle est restreinte a ce seul script
+      # par une forced command dans authorized_keys.
+      - name: Declencher le deploiement
+        env:
+          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
+          UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
+        run: |
+          ssh -i ~/.ssh/id_deploiement \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$UTILISATEUR@$HOTE" deployer

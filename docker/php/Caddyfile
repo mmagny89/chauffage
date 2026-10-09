@@ -1,0 +1,76 @@
+# Configuration nominale : chargee par docker-entrypoint des que
+# /app/public/index.php existe. Voir Caddyfile.bootstrap pour la
+# configuration de secours utilisee tant que l'application n'est pas
+# installee.
+#
+# CADDY_GLOBAL_OPTIONS et FRANKENPHP_WORKER_CONFIG sont des points
+# d'extension : les overrides d'environnement (compose.dev.yml,
+# compose.staging.yml, compose.prod.yml, proprietes de stack-env-config)
+# les alimentent sans jamais avoir a modifier ce fichier.
+#
+# Le mode worker "watch" (rechargement a chaud en developpement) est deja
+# assure par FRANKENPHP_WORKER_CONFIG=watch : ne pas ajouter hot_reload,
+# qui exige un hub Mercure configure et ferait echouer le demarrage de
+# Caddy une fois l'application installee.
+{
+	{$CADDY_GLOBAL_OPTIONS}
+
+	# Metriques Prometheus natives de Caddy (conventions, section 9).
+	# Sans cette option, le handler `metrics` ci-dessous ne sert que les
+	# metriques du processus Go, pas celles du trafic HTTP.
+	#
+	# Option GLOBALE, pas `servers { metrics }` : la forme imbriquee est
+	# depreciee et disparait a la prochaine version majeure de Caddy.
+	metrics
+
+	frankenphp {
+		worker {
+			file /app/public/index.php
+			{$FRANKENPHP_WORKER_CONFIG}
+		}
+	}
+
+	# API d'administration de Caddy exposee uniquement via un socket Unix
+	# partage avec le conteneur Ember (observabilite) — jamais via un port
+	# TCP publie.
+	admin unix//run/caddy/admin.sock
+}
+
+{$SERVER_NAME:localhost} {
+	root * /app/public
+	encode zstd br gzip
+	log
+
+	# En-tetes de securite, sur toutes les reponses. defer : appliques aussi
+	# aux reponses d'erreur, ou Caddy remettrait Server. Pas de HSTS ici : le TLS
+	# est termine par le proxy, et un HSTS servi en developpement sur localhost
+	# s'imposerait a tous les projets locaux. La Content-Security-Policy depend
+	# des ressources du projet : a poser dans le Caddyfile du projet.
+	header {
+		defer
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+		-Server
+		-X-Powered-By
+	}
+
+	route {
+		respond /health 200
+		php_server
+	}
+}
+
+# Ecoute interne dediee aux metriques Prometheus (conventions, sections 4 et 9).
+# JAMAIS publiee sur l'hote : elle n'est jointe que depuis le reseau
+# `monitoring`, par le Prometheus de l'hote. Un port publie exposerait
+# publiquement la latence, les codes d'erreur et le volume de trafic du site.
+#
+# Ce que ce handler ajoute par rapport a Ember : de vrais histogrammes
+# (`caddy_http_request_duration_seconds_bucket`, etiquetes par code, handler,
+# methode), donc des percentiles calculables. Ember n'expose que des moyennes
+# deja agregees, qui ne se re-decomposent pas.
+:2020 {
+	metrics
+}

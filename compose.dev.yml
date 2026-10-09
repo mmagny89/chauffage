@@ -1,0 +1,41 @@
+# Override developpement. Autosuffisant avec compose.yml seul :
+#   docker compose -f compose.yml -f compose.dev.yml up -d
+# (ou "docker compose up -d" nu, via COMPOSE_FILE du .env racine).
+services:
+  php:
+    build:
+      target: dev
+    image: chauffage-php:dev
+    environment:
+      XDEBUG_MODE: ${XDEBUG_MODE}
+    volumes:
+      - ./app:/app
+    ports:
+      - "${HTTP_PORT}:80"
+      - "${HTTPS_PORT}:443"
+      - "${HTTP3_PORT}:443/udp"
+
+  database:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
+
+  ember:
+    ports:
+      - "${EMBER_PORT}:9191"
+
+  # Attrapeur d'emails, developpement uniquement (section 8b) : absent de
+  # compose.yml, donc de staging et de production, qui portent un vrai
+  # transport dans leur fichier de secrets. Sans lui, eprouver un email en
+  # developpement demande d'en envoyer un vrai.
+  mailpit:
+    image: axllent/mailpit:v${MAILPIT_VERSION}
+    container_name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-mailpit
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 500
+    ports:
+      # L'interface web seulement : rien sur l'hote n'a de raison de
+      # joindre le port SMTP.
+      - "127.0.0.1:${MAILPIT_PORT}:8025"
+    networks:
+      - chauffage
