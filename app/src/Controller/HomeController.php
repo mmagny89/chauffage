@@ -4,13 +4,16 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Alert\FrostAdvisor;
 use App\Entity\User;
+use App\Forecast\ForecastService;
 use App\Forecast\ForecastUnavailableException;
 use App\Forecast\HouseholdNotLocatedException;
 use App\Recommendation\RecommendationEngine;
 use App\Recommendation\RecommendationService;
 use App\Recommendation\SlotRecommendation;
 use App\Recommendation\UpcomingSlot;
+use App\Reminder\ReadingReminder;
 use App\Repository\PlaceRepository;
 use App\Repository\ReadingRepository;
 use App\Service\Calibration;
@@ -34,6 +37,9 @@ final class HomeController extends AbstractController
         RecommendationService $recommendations,
         RecommendationEngine $engine,
         ShutterService $shutters,
+        ForecastService $forecasts,
+        FrostAdvisor $frostAdvisor,
+        ReadingReminder $reminders,
         ReadingRepository $readings,
         PlaceRepository $placeRepository,
         DateLabels $labels,
@@ -49,23 +55,32 @@ final class HomeController extends AbstractController
         $analysis = $recommendations->analyze($household);
         $hasReadings = !$analysis->report->isEmpty();
         $timezone = new \DateTimeZone($household->getTimezone());
+        $now = new \DateTimeImmutable($clock->now()->setTimezone($timezone)->format('Y-m-d H:i:s'));
+
+        // Gel annoncé et rappel de relevé : les deux lisent les prévisions, mais ne dépendent pas des relevés.
+        $forecast = [];
+        try {
+            $forecast = $forecasts->forHousehold($household);
+        } catch (HouseholdNotLocatedException|ForecastUnavailableException) {
+            // Sans prévision : ni alerte de froid, ni rappel lié aux températures annoncées.
+        }
+        $daysDone = $readings->countDays($household);
 
         // Le prochain créneau : une panne de prévisions ne doit pas priver l'accueil du reste.
         $upcoming = [];
         $rooms = [];
         if ($hasReadings) {
             try {
-                $now = new \DateTimeImmutable($clock->now()->setTimezone($timezone)->format('Y-m-d H:i:s'));
                 // Dès qu'une pièce a des températures visées propres, toutes les pièces ont leur recommandation.
                 $tracked = $placeRepository->findForRecommendations($household);
                 $set = $recommendations->forHouseholdAndPlaces($household, $tracked, $analysis);
                 $timezoneName = $household->getTimezone();
-                $upcoming = $this->entries($engine->upcoming($set->household, $now, self::UPCOMING, $analysis->heating), $labels, $timezoneName);
+                $upcoming = $this->entries($engine->upcoming($set->household, $now, self::UPCOMING, $analysis->heating, null, $analysis->rates), $labels, $timezoneName);
                 foreach ($tracked as $place) {
                     $rooms[] = [
                         'place' => $place,
                         'hasReadings' => $analysis->hasReadingsFor($place->getName()),
-                        'slots' => $this->entries($engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING, $analysis->heating, $place->getName()), $labels, $timezoneName),
+                        'slots' => $this->entries($engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING, $analysis->heating, $place->getName(), $analysis->rates), $labels, $timezoneName),
                     ];
                 }
             } catch (HouseholdNotLocatedException|ForecastUnavailableException) {
@@ -84,7 +99,9 @@ final class HomeController extends AbstractController
         return $this->render('home/index.html.twig', [
             'shutters' => $shutterAdvice,
             'household' => $household,
-            'daysDone' => $readings->countDays($household),
+            'frost' => $frostAdvisor->advise($forecast, $now),
+            'reminder' => $reminders->remind($daysDone, $analysis->lastReadingAt, $now, $analysis->models->overall, $forecast),
+            'daysDone' => $daysDone,
             'daysRequired' => Calibration::DAYS_REQUIRED,
             'hasReadings' => $hasReadings,
             'upcoming' => $upcoming,

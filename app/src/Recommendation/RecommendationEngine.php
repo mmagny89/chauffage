@@ -6,6 +6,7 @@ namespace App\Recommendation;
 
 use App\Calculation\DeltaModels;
 use App\Calculation\HeatingDays;
+use App\Calculation\HeatingRates;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
 use App\Forecast\DayForecast;
@@ -22,7 +23,9 @@ use App\Forecast\DayForecast;
  * dixièmes de degré entiers.
  *
  *
- * Dans la liste des créneaux à venir, un créneau d'aujourd'hui où le chauffage a déjà été allumé est
+ * Dans la liste des créneaux à venir, un créneau où il faut chauffer reçoit la durée estimée de la montée
+ * en température (vitesse mesurée sur les allumages dont la consigne a été notée atteinte), sauf si le
+ * chauffage est déjà allumé ; un créneau d'aujourd'hui où le chauffage a déjà été allumé est
  * marqué comme tel : l'affichage dit « Chauffer » sans température (HeatingDays).
  */
 final class RecommendationEngine
@@ -60,7 +63,7 @@ final class RecommendationEngine
      *
      * @return list<UpcomingSlot>
      */
-    public function upcoming(array $days, \DateTimeImmutable $now, int $count, ?HeatingDays $heating = null, ?string $placeName = null): array
+    public function upcoming(array $days, \DateTimeImmutable $now, int $count, ?HeatingDays $heating = null, ?string $placeName = null, ?HeatingRates $rates = null): array
     {
         $upcoming = [];
         foreach ($days as $day) {
@@ -71,7 +74,13 @@ final class RecommendationEngine
                 }
                 $recommendation = $day->forSlot($slot);
                 $heatedToday = null !== $heating && $day->date->format('Y-m-d') === $now->format('Y-m-d') && $heating->has($day->date->format('Y-m-d'), $placeName);
-                $upcoming[] = new UpcomingSlot($day->date, $heatedToday ? $recommendation->withHeatingOn() : $recommendation);
+                if ($heatedToday) {
+                    $recommendation = $recommendation->withHeatingOn();
+                } elseif (HeatingAction::Heat === $recommendation->action && null !== $recommendation->estimatedIndoor) {
+                    $minutes = $rates?->forPlace($placeName)?->minutesToRise($recommendation->target - $recommendation->estimatedIndoor);
+                    $recommendation = null === $minutes ? $recommendation : $recommendation->withWarmUp($minutes);
+                }
+                $upcoming[] = new UpcomingSlot($day->date, $recommendation);
                 if (\count($upcoming) === $count) {
                     return $upcoming;
                 }

@@ -11,7 +11,8 @@ use Psr\Clock\ClockInterface;
 
 /**
  * Double des prévisions : la température d'une heure vaut cette heure (0 à 23 °C), tous
- * les jours, à partir de minuit du jour courant. Une latitude supérieure à 80 simule une panne.
+ * les jours, à partir de minuit du jour courant. Une latitude supérieure à 80 simule une panne ; une
+ * longitude supérieure à 170 simule un grand froid (toutes les températures baissent de 20 °C).
  *
  * Moyennes qui en découlent : nuit 7,5 (22-23 h puis 0-5 h), matin 8,5, après-midi 14,5, soirée 19,5.
  */
@@ -27,11 +28,12 @@ final readonly class FakeForecastProvider implements HourlyTemperatureProviderIn
             throw new ForecastUnavailableException('Panne simulée.');
         }
 
+        $shift = $longitude > 170 ? -20.0 : 0.0;
         $start = new \DateTimeImmutable($this->clock->now()->setTimezone(new \DateTimeZone($timezone))->format('Y-m-d'));
         $hours = [];
         for ($i = 0; $i < $days * 24; ++$i) {
             $at = $start->modify(\sprintf('+%d hours', $i));
-            $hours[] = new HourlyTemperature($at, (float) (int) $at->format('G'));
+            $hours[] = new HourlyTemperature($at, (float) (int) $at->format('G') + $shift);
         }
 
         return $hours;

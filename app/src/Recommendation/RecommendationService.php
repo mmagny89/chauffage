@@ -7,6 +7,7 @@ namespace App\Recommendation;
 use App\Calculation\DeltaCalculator;
 use App\Calculation\DeltaModelFitter;
 use App\Calculation\HeatingDays;
+use App\Calculation\HeatingRateEstimator;
 use App\Entity\Household;
 use App\Entity\Place;
 use App\Enum\DaySlot;
@@ -14,6 +15,7 @@ use App\Enum\Weekday;
 use App\Forecast\ForecastService;
 use App\Repository\HeatingStartRepository;
 use App\Repository\ReadingRepository;
+use App\Service\TypicalSlopeResolver;
 
 /**
  * Assemble les prévisions, les écarts mesurés et les températures visées d'un foyer.
@@ -26,7 +28,9 @@ final readonly class RecommendationService
         private HeatingStartRepository $heatingStarts,
         private DeltaCalculator $calculator,
         private DeltaModelFitter $fitter,
+        private HeatingRateEstimator $heatingRates,
         private RecommendationEngine $engine,
+        private TypicalSlopeResolver $slopes,
     ) {
     }
 
@@ -76,11 +80,14 @@ final readonly class RecommendationService
         $readings = $this->readings->findByHousehold($household);
 
         $placesByDay = [];
-        foreach ($this->heatingStarts->findByHousehold($household) as $start) {
+        $starts = $this->heatingStarts->findByHousehold($household);
+        foreach ($starts as $start) {
             $placesByDay[$start->getStartedAt()->format('Y-m-d')][] = mb_strtolower($start->getPlace()->getName());
         }
 
-        return new Analysis($this->calculator->calculate($readings), $this->fitter->fit($readings), $this->fitter->fitPlaces($readings), new HeatingDays($placesByDay));
+        $slope = $this->slopes->effective($household, $readings);
+
+        return new Analysis($this->calculator->calculate($readings), $this->fitter->fit($readings, $slope), $this->fitter->fitPlaces($readings, $slope), new HeatingDays($placesByDay), [] === $readings ? null : $readings[0]->getMeasuredAt(), $slope, $this->heatingRates->estimate($starts));
     }
 
     /**

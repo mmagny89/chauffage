@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Calculation\HeatingRateEstimator;
 use App\Dto\ReadingSessionInput;
 use App\Entity\HeatingStart;
 use App\Entity\Reading;
@@ -19,6 +20,7 @@ use App\Service\Calibration;
 use App\Service\DateLabels;
 use App\Service\HouseholdProvider;
 use App\Service\ReadingRecorder;
+use App\Twig\DurationExtension;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Clock\ClockInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -36,11 +38,12 @@ final class ReadingController extends AbstractController
         private readonly ReadingRepository $readings,
         private readonly PlaceRepository $places,
         private readonly HeatingStartRepository $heatingStarts,
+        private readonly DurationExtension $durations,
     ) {
     }
 
     #[Route('', name: 'app_readings', methods: ['GET', 'POST'])]
-    public function index(Request $request, ReadingRecorder $recorder, ClockInterface $clock, DateLabels $labels, #[CurrentUser] User $user): Response
+    public function index(Request $request, ReadingRecorder $recorder, ClockInterface $clock, DateLabels $labels, HeatingRateEstimator $estimator, #[CurrentUser] User $user): Response
     {
         $household = $this->households->forUser($user);
         $places = $this->places->findByHousehold($household);
@@ -85,9 +88,13 @@ final class ReadingController extends AbstractController
             $days[$key]['readings'][] = $reading;
         }
 
+        $heatingStarts = $this->heatingStarts->findByHousehold($household);
+
         return $this->render('reading/index.html.twig', [
             'form' => $form,
-            'heatingStarts' => $this->heatingStarts->findByHousehold($household),
+            'heatingStarts' => $heatingStarts,
+            'rates' => $estimator->estimate($heatingStarts),
+            'minSamples' => HeatingRateEstimator::MIN_SAMPLES,
             'places' => $places,
             'days' => $days,
             'daysDone' => $this->readings->countDays($household),
@@ -129,5 +136,41 @@ final class ReadingController extends AbstractController
         $this->addFlash('success', 'Allumage supprimé.');
 
         return $this->redirectToRoute('app_readings', ['_fragment' => 'chauffage']);
+    }
+
+    /**
+     * Note que la pièce a atteint la consigne, à l'instant présent : la durée de montée en température
+     * en découle (voir HeatingRateEstimator).
+     */
+    #[Route('/chauffage/{id}/atteinte', name: 'app_heating_start_reached', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function markReached(HeatingStart $start, Request $request, EntityManagerInterface $entityManager, ClockInterface $clock): Response
+    {
+        $this->denyAccessUnlessGranted(HeatingStartVoter::REACH, $start);
+
+        $back = $this->redirectToRoute('app_readings', ['_fragment' => 'chauffage']);
+        if (!$this->isCsrfTokenValid('reach-heating-start-'.$start->getId(), (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Action refusée : le jeton de sécurité a expiré. Réessayez.');
+
+            return $back;
+        }
+        if (null !== $start->getReachedAt()) {
+            $this->addFlash('error', 'La consigne est déjà notée atteinte pour cet allumage.');
+
+            return $back;
+        }
+
+        $timezone = new \DateTimeZone($start->getPlace()->getHousehold()->getTimezone());
+        $now = new \DateTimeImmutable($clock->now()->setTimezone($timezone)->format('Y-m-d H:i:s'));
+        try {
+            $start->markReached($now);
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+
+            return $back;
+        }
+        $entityManager->flush();
+        $this->addFlash('success', \sprintf('Consigne atteinte en %s.', $this->durations->duration((int) $start->getWarmUpMinutes())));
+
+        return $back;
     }
 }

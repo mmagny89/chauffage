@@ -152,8 +152,10 @@ jobs:
     name: Deploiement
     needs: qualite
     # Jamais sur une pull request : une PR d'un depot tiers deploierait du
-    # code non relu.
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    # code non relu. Seule main part en production : il n'y a pas
+    # d'environnement de pre-production, develop ne deploie rien (la cle de
+    # deploiement n'existe d'ailleurs que pour « prod »).
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     # Deux deploiements simultanes visent le meme stack sur l'hote : on

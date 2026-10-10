@@ -55,11 +55,14 @@ de service par volume de requêtes.
   adresse email confirmée avant toute connexion ; limitation des tentatives de
   connexion, d'inscription, de réinitialisation et de changement de mot de passe (qui exige
   l'ancien et ferme les autres sessions).
+- Données personnelles : chaque compte peut télécharger ses données (JSON) et supprimer son compte, ce qui
+  efface en cascade foyer, lieux, relevés et allumages ; la suppression exige le mot de passe et une confirmation,
+  et ses tentatives sont limitées.
 - Contrôle d'accès : chaque relevé et chaque lieu n'est modifiable que par le compte
   dont le foyer le porte (Voters), avec un jeton CSRF sur chaque action.
 - Politique de sécurité du contenu (CSP) avec un nonce par requête, sans `unsafe-inline`
   ni `unsafe-eval`.
-- Un journal d'audit (connexions, échecs, inscriptions, réinitialisations, changements de mot de passe, limites
+- Un journal d'audit (connexions, échecs, inscriptions, réinitialisations, changements de mot de passe, exports et suppressions de compte, limites
   atteintes) est écrit sans adresse email, seulement un identifiant interne ou une
   empreinte courte.
 - Aucun secret réel n'entre dans l'historique git : `.env` ne porte que des valeurs de

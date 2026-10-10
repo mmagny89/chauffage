@@ -34,6 +34,8 @@ final readonly class SetupRequiredSubscriber implements EventSubscriberInterface
         'app_place_delete',
         'app_setup_finish',
         'app_account',
+        'app_account_export',
+        'app_account_delete',
         'app_logout',
     ];
 

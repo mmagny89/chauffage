@@ -48,6 +48,17 @@ final class DeltaModelFitterTest extends TestCase
         self::assertSame(1, $model->sessions);
     }
 
+    public function testAHouseholdSlopeReplacesTheTypicalOne(): void
+    {
+        $place = new Place($this->household, 'Salon');
+        $readings = [new Reading($place, new \DateTimeImmutable('2026-10-08 08:00'), 8.0, 17.3)];
+
+        self::assertSame(-0.7, $this->fitter->fit($readings, -0.7)->overall?->slope);
+        self::assertSame(-0.7, $this->fitter->fitPlaces($readings, -0.7)['salon']->overall?->slope);
+        self::assertSame(DeltaModelFitter::TYPICAL_SLOPE, $this->fitter->fit($readings)->overall?->slope);
+        self::assertSame(DeltaModelFitter::SLOPE_MIN, $this->fitter->fit($readings, -3.0)->overall?->slope, 'Bornée comme toute pente.');
+    }
+
     public function testAMildForecastNoLongerInheritsAColdWeatherGap(): void
     {
         // Le cas signalé : un seul relevé à 8 °C (écart +9,3), prévision de 21 °C.

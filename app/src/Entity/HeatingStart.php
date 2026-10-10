@@ -12,6 +12,8 @@ use Doctrine\ORM\Mapping as ORM;
  * Un allumage du chauffage : à quel moment il a été mis en route dans une pièce, sur quelle
  * température de consigne, et quelle température il faisait alors dans la pièce.
  *
+ * Une fois la consigne atteinte, `reachedAt` donne la durée de la montée en température (voir HeatingRateEstimator).
+ *
  * Ce n'est pas un relevé : il est pris chauffage allumé et ne sert jamais au calcul des écarts.
  * `startedAt` est l'heure murale locale du foyer (sans fuseau), comme celle d'un relevé.
  */
@@ -20,6 +22,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uniq_heating_start_place_started_at', fields: ['place', 'startedAt'])]
 class HeatingStart
 {
+    /** Au-delà, une consigne « atteinte » ne décrit plus une montée en température. */
+    public const MAX_WARM_UP_HOURS = 24;
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -41,6 +46,10 @@ class HeatingStart
     /** Absente des allumages notés avant que la température extérieure soit demandée. */
     #[ORM\Column(type: Types::DECIMAL, precision: 4, scale: 1, nullable: true)]
     private ?string $outdoorTemperature = null;
+
+    /** Heure murale locale où la pièce a atteint la consigne ; null tant qu'on ne l'a pas indiqué. */
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $reachedAt = null;
 
     public function __construct(Place $place, \DateTimeImmutable $startedAt, float $setpoint, float $indoorTemperature, float $outdoorTemperature)
     {
@@ -90,6 +99,37 @@ class HeatingStart
     public function getOutdoorTemperature(): ?float
     {
         return null === $this->outdoorTemperature ? null : (float) $this->outdoorTemperature;
+    }
+
+    public function getReachedAt(): ?\DateTimeImmutable
+    {
+        return $this->reachedAt;
+    }
+
+    /**
+     * Note que la pièce a atteint la consigne.
+     *
+     * @throws \InvalidArgumentException avant l'allumage, ou plus de MAX_WARM_UP_HOURS heures après (ce n'est plus une montée en température)
+     */
+    public function markReached(\DateTimeImmutable $at): static
+    {
+        if ($at < $this->startedAt) {
+            throw new \InvalidArgumentException('La consigne ne peut pas être atteinte avant l’allumage.');
+        }
+        if ($at > $this->startedAt->modify(\sprintf('+%d hours', self::MAX_WARM_UP_HOURS))) {
+            throw new \InvalidArgumentException(\sprintf('Plus de %d heures après l’allumage : ce n’est plus une montée en température.', self::MAX_WARM_UP_HOURS));
+        }
+        $this->reachedAt = $at;
+
+        return $this;
+    }
+
+    /**
+     * Durée de la montée en température, en minutes ; null tant que la consigne n'est pas notée atteinte.
+     */
+    public function getWarmUpMinutes(): ?int
+    {
+        return null === $this->reachedAt ? null : intdiv($this->reachedAt->getTimestamp() - $this->startedAt->getTimestamp(), 60);
     }
 
     /**
