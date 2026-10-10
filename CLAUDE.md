@@ -112,7 +112,7 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   pente, « pente typique » sinon. Un créneau sans relevé utilise le modèle de tous les créneaux
   (signalé « écart général »). Hypothèses à réviser avec des données réelles : −0,4 et λ.
 - **Recommandation** : intérieur estimé = prévision + écart du modèle à cette température.
-  **Strictement sous la cible → chauffer à la cible ; à égalité ou au-dessus → couper.**
+  **Sous la cible de plus de 1 °C (`TOLERANCE_TENTHS`) → chauffer à la cible ; écart d'1 °C ou moins, ou au-dessus → couper** (1 °C d'écart est jugé tolérable).
   Cible = celle du jour de la semaine et du créneau. La température intérieure s'affiche à l'unité
   (une précision au dixième serait fausse). Prévision hors de la plage relevée (marge 3 °C) →
   « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »

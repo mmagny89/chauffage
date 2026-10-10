@@ -47,6 +47,14 @@ rend une page échoue sur un message qui ne mentionne jamais Tailwind.
 - **Un test accompagne tout changement de comportement** : requête HTTP pour un
   contrôleur, appel de service pour un service.
 
+## Publier une version
+
+1. Sur `develop` : passer les changements de `## [Non publié]` du [`CHANGELOG.md`](CHANGELOG.md) sous
+   `## [X.Y.Z] - AAAA-MM-JJ`, et mettre à jour la version dans le `README.md`.
+2. Fusionner `develop` dans `main`, puis étiqueter : `git tag -a vX.Y.Z -m "Version X.Y.Z" && git push origin vX.Y.Z`.
+3. Le workflow `release.yml` publie la release GitHub avec la section du journal pour notes ; il échoue si
+   cette section manque.
+
 ## Signaler une faille de sécurité
 
 Pas par une issue publique — voir [SECURITY.md](SECURITY.md).

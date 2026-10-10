@@ -10,6 +10,20 @@ règles métier et des pièges déjà payés vit dans [`CLAUDE.md`](CLAUDE.md).
 
 ## [Non publié]
 
+## [0.3.0] - 2026-10-10
+
+### Ajouté
+
+- **Release automatique** : pousser une étiquette `vX.Y.Z` publie la release GitHub, dont les notes sont la
+  section correspondante de ce journal.
+- **Production** : le site de production est servi sur `chauffage.mmagny.fr`.
+
+### Modifié
+
+- **Tolérance d'1 °C** : si l'intérieur estimé n'est pas sous la température visée de plus d'1 °C, on ne
+  recommande plus de chauffer.
+- **Sessions** : la connexion dure 30 jours (cookie de session et « se souvenir de moi » permanent).
+
 ## [0.2.0] - 2026-10-09
 
 ### Ajouté

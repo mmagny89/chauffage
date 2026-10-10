@@ -44,8 +44,8 @@ vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 p
 
 ## État du projet
 
-Utilisable de bout en bout, version **0.2.0** (voir le [journal des versions](CHANGELOG.md)) ;
-pas encore d'environnement de pré-production ni de production. Prévu ensuite : alertes par email et récapitulatif
+Utilisable de bout en bout, version **0.3.0** (voir le [journal des versions](CHANGELOG.md)) ;
+production sur <https://chauffage.mmagny.fr>. Prévu ensuite : alertes par email et récapitulatif
 quotidien (nécessite un worker).
 
 | Domaine | Ce qui fonctionne aujourd'hui |

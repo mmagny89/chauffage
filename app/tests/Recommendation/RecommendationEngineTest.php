@@ -21,7 +21,7 @@ use PHPUnit\Framework\TestCase;
 
 final class RecommendationEngineTest extends TestCase
 {
-    private const TARGETS = ['night' => 17.0, 'morning' => 19.0, 'afternoon' => 19.0, 'evening' => 20.0];
+    private const TARGETS = ['night' => 17.0, 'morning' => 20.0, 'afternoon' => 20.0, 'evening' => 20.0];
 
     /**
      * @param array<string, float> $perSlot
@@ -42,13 +42,13 @@ final class RecommendationEngineTest extends TestCase
 
     public function testHeatsWhenEstimatedIndoorIsBelowTarget(): void
     {
-        // dehors 5,0 + écart 13,0 = 18,0 < 19 (matin)
+        // dehors 5,0 + écart 13,0 = 18,0, 2 °C sous 20 (matin)
         $result = $this->morning($this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), 5.0);
 
         self::assertSame(HeatingAction::Heat, $result->action);
         self::assertSame(18.0, $result->estimatedIndoor);
         self::assertSame(13.0, $result->delta);
-        self::assertSame(19.0, $result->setpoint(), 'Consigne = température visée.');
+        self::assertSame(20.0, $result->setpoint(), 'Consigne = température visée.');
     }
 
     public function testCutsWhenEstimatedIndoorIsAboveTarget(): void
@@ -72,9 +72,18 @@ final class RecommendationEngineTest extends TestCase
         self::assertSame(HeatingAction::Cut, $result->action);
     }
 
-    public function testOneTenthBelowTargetHeats(): void
+    public function testExactlyOneDegreeBelowTargetCuts(): void
     {
-        $targets = self::week(['night' => 17.0, 'morning' => 18.1, 'afternoon' => 19.0, 'evening' => 20.0]);
+        $targets = self::week(['night' => 17.0, 'morning' => 19.0, 'afternoon' => 19.0, 'evening' => 20.0]);
+        $result = $this->engine->recommend([$this->forecastDay(['morning' => 5.0])], $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), $targets)[0]->forSlot(DaySlot::Morning);
+
+        self::assertSame(18.0, $result->estimatedIndoor);
+        self::assertSame(HeatingAction::Cut, $result->action, 'Écart d’1 °C : toléré.');
+    }
+
+    public function testMoreThanOneDegreeBelowTargetHeats(): void
+    {
+        $targets = self::week(['night' => 17.0, 'morning' => 19.1, 'afternoon' => 19.0, 'evening' => 20.0]);
         $result = $this->engine->recommend([$this->forecastDay(['morning' => 5.0])], $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]), $targets)[0]->forSlot(DaySlot::Morning);
 
         self::assertSame(HeatingAction::Heat, $result->action);
@@ -93,7 +102,7 @@ final class RecommendationEngineTest extends TestCase
         self::assertSame(13.0, $day->forSlot(DaySlot::Morning)->delta);
         self::assertSame(5.0, $day->forSlot(DaySlot::Evening)->delta);
         self::assertSame(18.0, $day->forSlot(DaySlot::Morning)->estimatedIndoor);
-        self::assertSame(HeatingAction::Heat, $day->forSlot(DaySlot::Morning)->action, '18,0 < 19 : on chauffe');
+        self::assertSame(HeatingAction::Heat, $day->forSlot(DaySlot::Morning)->action, '18,0 : 2 °C sous 20, on chauffe');
         self::assertSame(10.0, $day->forSlot(DaySlot::Evening)->estimatedIndoor, 'Écart du soir (+5, à 5 °C), et non celui du matin.');
     }
 
@@ -176,8 +185,8 @@ final class RecommendationEngineTest extends TestCase
         $saturday = new DayForecast(new \DateTimeImmutable('2026-10-10'), $this->slots(['morning' => 5.0]));
         [$fri, $sat] = $this->engine->recommend([$friday, $saturday], $deltas, $targets);
 
-        self::assertSame(HeatingAction::Heat, $fri->forSlot(DaySlot::Morning)->action, '18,0 < 19 le vendredi');
-        self::assertSame(19.0, $fri->forSlot(DaySlot::Morning)->target);
+        self::assertSame(HeatingAction::Heat, $fri->forSlot(DaySlot::Morning)->action, '18,0 : 2 °C sous 20 le vendredi');
+        self::assertSame(20.0, $fri->forSlot(DaySlot::Morning)->target);
         self::assertSame(HeatingAction::Cut, $sat->forSlot(DaySlot::Morning)->action, '18,0 ≥ 17 le samedi');
         self::assertSame(17.0, $sat->forSlot(DaySlot::Morning)->target);
     }
@@ -311,12 +320,12 @@ final class RecommendationEngineTest extends TestCase
 
         $plain = $this->engine->upcoming($days, $now, 2);
         self::assertFalse($plain[0]->recommendation->heatingOn);
-        self::assertSame(19.0, $plain[0]->recommendation->setpoint());
+        self::assertSame(20.0, $plain[0]->recommendation->setpoint());
 
         $marked = $this->engine->upcoming($days, $now, 2, $heating);
         self::assertTrue($marked[0]->recommendation->heatingOn, 'Chauffage allumé aujourd’hui : « Chauffer » seul.');
         self::assertSame(HeatingAction::Heat, $marked[0]->recommendation->action);
-        self::assertSame(19.0, $days[0]->forSlot(DaySlot::Morning)->setpoint(), 'Le calcul lui-même ne change pas.');
+        self::assertSame(20.0, $days[0]->forSlot(DaySlot::Morning)->setpoint(), 'Le calcul lui-même ne change pas.');
         self::assertFalse($days[0]->forSlot(DaySlot::Morning)->heatingOn);
 
         self::assertTrue($this->engine->upcoming($days, $now, 1, $heating, 'Salon')[0]->recommendation->heatingOn);

@@ -17,8 +17,8 @@ use App\Forecast\DayForecast;
  * intérieure estimée = température extérieure prévue + écart du foyer sur ce créneau, calculé
  * par son modèle à cette température extérieure (régression, ou écart moyen faute de données ;
  * à défaut de relevé sur le créneau, modèle de tous les créneaux, signalé). Une prévision hors
- * de la plage des températures mesurées est signalée. Si l'estimation est strictement sous
- * la température visée, on chauffe, à cette température ; sinon on coupe. Calcul pur, en
+ * de la plage des températures mesurées est signalée. Si l'estimation est sous la température
+ * visée de plus de 1 °C (TOLERANCE_TENTHS), on chauffe, à cette température ; sinon on coupe. Calcul pur, en
  * dixièmes de degré entiers.
  *
  *
@@ -27,6 +27,9 @@ use App\Forecast\DayForecast;
  */
 final class RecommendationEngine
 {
+    /** Écart toléré entre la température visée et l'intérieur estimé, en dixièmes de degré (1 °C). */
+    public const TOLERANCE_TENTHS = 10;
+
     /**
      * @param list<DayForecast>                $days
      * @param array<int, array<string, float>> $targets température visée, indexée par le numéro du jour de la semaine (1 = lundi)
@@ -99,7 +102,7 @@ final class RecommendationEngine
         $deltaTenths = (int) round($model->deltaAt($forecast->average) * 10);
         $estimatedTenths = (int) round($forecast->average * 10) + $deltaTenths;
         $targetTenths = (int) round($target * 10);
-        $action = $estimatedTenths < $targetTenths ? HeatingAction::Heat : HeatingAction::Cut;
+        $action = $targetTenths - $estimatedTenths > self::TOLERANCE_TENTHS ? HeatingAction::Heat : HeatingAction::Cut;
 
         return new SlotRecommendation(
             $slot,

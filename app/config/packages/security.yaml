@@ -25,6 +25,10 @@ security:
                 check_path: app_login
                 default_target_path: app_home
                 enable_csrf: true
+            remember_me:
+                secret: '%kernel.secret%'
+                lifetime: 2592000 # 30 jours
+                always_remember_me: true
             login_throttling:
                 max_attempts: 5
                 interval: '15 minutes'
