@@ -210,6 +210,14 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$CLE" > ~/.ssh/id_deploiement
           chmod 600 ~/.ssh/id_deploiement
+          # Une cle illisible (collee sans ses lignes BEGIN/END, tronquee, ou la cle
+          # publique a la place) n'est pas presentee au serveur, qui repond alors
+          # seulement « Permission denied (publickey,password) » : on le dit ici.
+          ssh-keygen -y -f ~/.ssh/id_deploiement >/dev/null 2>&1 || {
+            echo "DEPLOIEMENT_CLE_PRIVEE n'est pas une cle privee SSH lisible." >&2
+            echo "La recoller en entier, lignes BEGIN et END comprises : cat ~/.ssh/<projet>_<env>_actions" >&2
+            exit 1
+          }
           # Empreinte epinglee, jamais StrictHostKeyChecking=no : ce serait
           # accepter n'importe quel serveur a cette adresse.
           printf '%s\n' "$EMPREINTES" > ~/.ssh/known_hosts
