@@ -121,10 +121,22 @@ jobs:
           php bin/console doctrine:database:create --env=test --if-not-exists --no-interaction
           php bin/console doctrine:migrations:migrate --env=test --no-interaction
 
+      # Sans feuille de style compilee, toute page echoue au rendu : ~180 tests en
+      # erreur et des dizaines de Mo de journal, que GitHub tronque (« This step has
+      # been truncated due to its large size »). var/tailwind est ignore par git.
+      - name: CSS (Tailwind)
+        run: |
+          if php bin/console list tailwind --raw 2>/dev/null | grep -q '^tailwind:build'; then
+            php bin/console tailwind:build
+          else
+            echo "Bundle Tailwind absent — etape ignoree."
+          fi
+
       - name: Tests
         run: |
           if [ -x bin/phpunit ] || [ -x vendor/bin/phpunit ]; then
-            php bin/phpunit 2>/dev/null || vendor/bin/phpunit
+            # Une seule execution : rejouer la suite apres un echec doublerait le journal.
+            php bin/phpunit
           else
             echo "PHPUnit absent — etape ignoree."
             echo "Pour l'activer : composer require --dev symfony/test-pack"
