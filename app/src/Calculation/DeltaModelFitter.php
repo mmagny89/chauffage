@@ -48,10 +48,11 @@ final class DeltaModelFitter
      * foyer). Une pièce sans relevé n'y figure pas.
      *
      * @param iterable<Reading> $readings
+     * @param float|null        $typicalSlope pente typique propre au foyer ; null pour TYPICAL_SLOPE
      *
      * @return array<string, DeltaModels>
      */
-    public function fitPlaces(iterable $readings): array
+    public function fitPlaces(iterable $readings, ?float $typicalSlope = null): array
     {
         /** @var array<string, list<Reading>> $byPlace */
         $byPlace = [];
@@ -59,13 +60,14 @@ final class DeltaModelFitter
             $byPlace[mb_strtolower($reading->getPlace()->getName())][] = $reading;
         }
 
-        return array_map($this->fit(...), $byPlace);
+        return array_map(fn (array $placeReadings): DeltaModels => $this->fit($placeReadings, $typicalSlope), $byPlace);
     }
 
     /**
      * @param iterable<Reading> $readings
+     * @param float|null        $typicalSlope pente typique propre au foyer ; null pour TYPICAL_SLOPE
      */
-    public function fit(iterable $readings): DeltaModels
+    public function fit(iterable $readings, ?float $typicalSlope = null): DeltaModels
     {
         /** @var array<string, non-empty-list<array{float, float, string}>> $bySlot */
         $bySlot = [];
@@ -82,13 +84,15 @@ final class DeltaModelFitter
             return new DeltaModels([], null);
         }
 
-        return new DeltaModels(array_map($this->model(...), $bySlot), $this->model($all));
+        $prior = max(self::SLOPE_MIN, min(self::SLOPE_MAX, $typicalSlope ?? self::TYPICAL_SLOPE));
+
+        return new DeltaModels(array_map(fn (array $points): DeltaModel => $this->model($points, $prior), $bySlot), $this->model($all, $prior));
     }
 
     /**
      * @param non-empty-list<array{float, float, string}> $points température extérieure, écart, instant
      */
-    private function model(array $points): DeltaModel
+    private function model(array $points, float $prior): DeltaModel
     {
         $n = \count($points);
         $xs = array_column($points, 0);
@@ -104,7 +108,7 @@ final class DeltaModelFitter
         }
 
         $weight = $sxx / ($sxx + self::PRIOR_STRENGTH);
-        $slope = max(self::SLOPE_MIN, min(self::SLOPE_MAX, ($sxy + self::PRIOR_STRENGTH * self::TYPICAL_SLOPE) / ($sxx + self::PRIOR_STRENGTH)));
+        $slope = max(self::SLOPE_MIN, min(self::SLOPE_MAX, ($sxy + self::PRIOR_STRENGTH * $prior) / ($sxx + self::PRIOR_STRENGTH)));
 
         return new DeltaModel(
             $weight >= self::REGRESSION_WEIGHT ? ModelKind::Regression : ModelKind::Typical,

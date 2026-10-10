@@ -132,9 +132,71 @@ final class HeatingStartControllerTest extends WebTestCase
         self::assertSame(1, $this->em->getRepository(HeatingStart::class)->count([]));
 
         $crawler = $this->client->request('GET', '/releves');
-        $this->client->submit($crawler->filter('#chauffage tbody form')->form());
+        $this->client->submit($crawler->filter('#chauffage tbody form[action$="/supprimer"]')->form());
         self::assertResponseRedirects('/releves#chauffage');
         self::assertSame(0, $this->em->getRepository(HeatingStart::class)->count([]));
+    }
+
+    public function testTheSetpointCanBeMarkedReachedAndTheDurationIsShown(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $start = new HeatingStart($this->createPlace($user, 'Salon'), new \DateTimeImmutable('2026-10-09 12:30'), 20.0, 16.0, 6.0);
+        $this->em->persist($start);
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/releves');
+        self::assertSelectorTextContains('#chauffage', 'Consigne atteinte');
+        $this->client->submit($crawler->filter('#chauffage tbody form[action$="/atteinte"]')->form());
+
+        self::assertResponseRedirects('/releves#chauffage');
+        $this->em->clear();
+        $fresh = $this->em->getRepository(HeatingStart::class)->find($start->getId());
+        self::assertSame(90, $fresh?->getWarmUpMinutes(), 'Allumé à 12 h 30, atteint à 14 h (heure du double).');
+
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[role=status]', 'Consigne atteinte en 1 h 30');
+        self::assertSelectorTextContains('#chauffage tbody', '14:00 (1 h 30)');
+        self::assertSelectorNotExists('#chauffage tbody form[action$="/atteinte"]');
+    }
+
+    public function testReachedCannotBeMarkedTwiceByAnotherAccountOrWithABadToken(): void
+    {
+        $owner = $this->createUser('a@example.com');
+        $start = new HeatingStart($this->createPlace($owner, 'Salon'), new \DateTimeImmutable('2026-10-09 12:30'), 20.0, 16.0, 6.0);
+        $this->em->persist($start);
+        $this->em->flush();
+        $id = $start->getId();
+
+        $this->client->loginUser($this->createUser('b@example.com'));
+        $this->client->request('POST', '/releves/chauffage/'.$id.'/atteinte', ['_token' => 'x']);
+        self::assertResponseStatusCodeSame(403);
+
+        $this->client->loginUser($owner);
+        $this->client->request('POST', '/releves/chauffage/'.$id.'/atteinte', ['_token' => 'invalide']);
+        self::assertResponseRedirects('/releves#chauffage');
+        $this->em->clear();
+        self::assertNull($this->em->getRepository(HeatingStart::class)->find($id)?->getReachedAt());
+
+        $this->client->request('GET', '/releves/chauffage/'.$id.'/atteinte');
+        self::assertResponseStatusCodeSame(405);
+    }
+
+    public function testASetpointTooLongAfterTheStartIsRefused(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $start = new HeatingStart($this->createPlace($user, 'Salon'), new \DateTimeImmutable('2026-10-07 07:00'), 20.0, 16.0, 6.0);
+        $this->em->persist($start);
+        $this->em->flush();
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/releves');
+        $this->client->submit($crawler->filter('#chauffage tbody form[action$="/atteinte"]')->form());
+        $this->client->followRedirect();
+
+        self::assertSelectorTextContains('[role=alert]', 'ce n’est plus une montée en température');
+        $this->em->clear();
+        self::assertNull($this->em->getRepository(HeatingStart::class)->find($start->getId())?->getReachedAt());
     }
 
     public function testDeletingAPlaceDeletesItsHeatingStarts(): void

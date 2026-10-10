@@ -52,7 +52,7 @@ Standards de code : skills `symfony-coding-standards`, `phpstan-analysis`,
 - `declare(strict_types=1)` partout (php-cs-fixer le fait respecter). PHPStan niveau 8,
   **sans baseline** : ne pas ajouter d'exclusion applicative.
 - **Logique côté PHP, Twig purement présentationnel.** Les calculs sont des services purs
-  (`App\Calculation`, `App\Forecast\ForecastAggregator`, `App\Recommendation\RecommendationEngine`) :
+  (`App\Calculation`, `App\Forecast\ForecastAggregator`, `App\Recommendation\RecommendationEngine`, `App\Alert`, `App\Reminder`) :
   pas d'accès base ni horloge dans le calcul.
 - Températures en **dixièmes de degré entiers** dans les calculs, pour qu'un résultat ne
   dépende ni de l'ordre des données ni des erreurs d'arrondi des flottants.
@@ -71,6 +71,11 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
 - **Mon compte** (`/compte`) : changement de mot de passe (mot de passe actuel exigé, `PasswordPolicy`, limiteur
   `password_change` 5 / 15 min par utilisateur). Le hachage fait partie de l'identité en session : le contrôleur
   reconnecte l'utilisateur (`Security::login`) après le changement. Accessible pendant la mise en route.
+  Même page : **export JSON** de toutes les données du compte (`AccountExporter`, jamais le hachage du mot de passe) et
+  **suppression** (`/compte/supprimer`) : mot de passe actuel + case cochée, limiteur `account_delete` 5 / 15 min, suppression
+  de l'utilisateur et cascade **en base** (`onDelete: CASCADE`) sur foyer, lieux, relevés, allumages ; l'utilisateur est
+  déconnecté. Un nouveau lien vers un foyer doit donc garder ce `onDelete: CASCADE`. Ces deux pages restent accessibles
+  pendant la mise en route.
 - **Un compte = un foyer** (`Household`, créé à l'inscription avec ses 28 températures visées).
 - **Mise en route obligatoire** : tant que `Household::isSetUp()` est faux, `SetupRequiredSubscriber`
   redirige toute page autre que les réglages (et la déconnexion) vers `/reglages`, qui s'affiche alors
@@ -93,6 +98,13 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   température de la pièce (0–40 °C). **Ce n'est pas un relevé** : pris chauffage allumé, il n'entre jamais dans le calcul des
   écarts (`Reading` reste la seule source). Futur et doublons (pièce, instant) refusés ; supprimé avec sa
   pièce (cascade). Température extérieure obligatoire (facultative en base : allumages antérieurs).
+  **Consigne atteinte** : un bouton sur chaque allumage (page des relevés) note l'heure à laquelle la pièce a atteint la
+  consigne (`reachedAt`, heure murale locale, pas avant l'allumage, au plus 24 h après). Cela donne une **vitesse de
+  chauffe** (`HeatingRateEstimator`, calcul pur) : (consigne − température à l'allumage) ÷ durée, moyenne par pièce, ou du
+  foyer faute de mieux ; il faut **2 allumages exploitables** (≥ 0,5 °C gagné, ≥ 10 min). Montée prise **linéaire** et
+  indépendante de la température extérieure : hypothèses. Effet : les créneaux « Chauffer » des listes « À venir »
+  ajoutent « ≈ 1 h 30 pour y arriver » (écart cible − intérieur estimé ÷ vitesse, arrondi aux 5 min) — sauf si le
+  chauffage est déjà allumé aujourd'hui. Ne change jamais la décision chauffer/couper.
   **Effet sur l'affichage** (`HeatingDays`) : si un allumage est noté **aujourd'hui** (la pièce pour une
   vue de pièce, une pièce quelconque pour le foyer), les créneaux **d'aujourd'hui** des listes « À venir »
   (accueil, page Recommandations, pièce par pièce) disent « Chauffer » **sans température** : la consigne
@@ -135,6 +147,27 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   lever ; sinon, volets fermés possibles ; fermer au coucher dans les deux cas froids. **Les deux seuils sont des
   hypothèses**, pas des mesures. Données : Open-Meteo `daily` (lever, coucher, ensoleillement, moyenne), cache 1 h,
   séparé des prévisions horaires ; une panne masque la carte sans casser la page.
+- **Fiabilité** (`/fiabilite`, `AccuracyEvaluator`, calcul pur) : pour chaque *séance* de relevés (même instant, tous
+  lieux), le modèle du foyer est ajusté **sans** elle, puis estime l'intérieur de chacun de ses relevés (modèle du
+  créneau, sinon modèle général, comme la recommandation) ; erreur = estimé − mesuré. Restitué par créneau et par lieu :
+  erreur absolue moyenne, biais signé (« penche » dès 1 °C), part des relevés à la tolérance (celle de la
+  recommandation, `RecommendationEngine::TOLERANCE_TENTHS`). « Provisoire » sous 8 séances (`RELIABLE_FROM_SESSIONS`,
+  hypothèse). Évaluer sur les relevés qui ont ajusté le modèle serait trop flatteur : d'où le « sans la séance ».
+  **Pente typique réglable** (`Household::typicalSlope`, `autoTuneSlope`, `SlopeTuner`) : la page cherche, parmi -0,9…-0,1, la
+  pente typique qui aurait le mieux prédit les relevés (même évaluation « sans la séance ») et la propose si le gain est d'au
+  moins 0,1 °C et s'il y a ≥ 8 séances ; appliquée à la main, ou en **réglage automatique** (recherche depuis la valeur par
+  défaut, résultat mis en cache par contenu des relevés dans `TypicalSlopeResolver`, rien à invalider). Les modèles du foyer
+  *et* de chaque pièce l'utilisent. N'a d'effet que tant que les relevés sont peu variés (voir `DeltaModelFitter`).
+  Concerne la vue « Tout le foyer », pas les modèles de pièce. Lien depuis la page Écarts, pas dans le menu (qui est
+  déjà plein à 1024 px).
+- **Alerte de froid** (`App\Alert\FrostAdvisor`, bandeau de l'accueil) : sur aujourd'hui et demain (créneaux terminés
+  exclus), minimum prévu **strictement sous 0 °C** → gel ; **-5 °C ou moins** → grand froid. Seuils conventionnels,
+  pas des mesures. Indépendant des relevés ; une panne de prévision masque le bandeau sans casser la page. Pas d'email
+  (il faudrait un worker).
+- **Rappel de relevé** (`App\Reminder\ReadingReminder`, carte de l'accueil), par priorité : une température prévue
+  aujourd'hui ou demain **hors de la plage relevée** (marge de `DeltaModel::EXTRAPOLATION_MARGIN`, la même que
+  « hors plage mesurée ») ; dernier relevé de **7 jours ou plus** (`STALE_AFTER_DAYS`, hypothèse) ; calibrage
+  inachevé sans relevé aujourd'hui. Aucun rappel sans relevé (la carte « Où j'en suis » invite déjà à commencer).
 - **Prévisions** : 16 jours demandés à Open-Meteo, 15 affichés (pour que la 15ᵉ nuit soit
   complète) ; cache 1 h par position arrondie à 0,01°.
 
@@ -213,5 +246,5 @@ sans la casser ; une défaillance n'est jamais mise en cache.
 
 Politique complète dans [`SECURITY.md`](SECURITY.md). À ne pas régresser : Voters sur tout objet
 d'un foyer, jeton CSRF sur chaque action, limiteurs de débit (connexion, inscription,
-réinitialisation, recherche de ville), journal d'audit sans adresse email, valeurs du navigateur
+réinitialisation, recherche de ville, changement de mot de passe, suppression de compte), journal d'audit sans adresse email, valeurs du navigateur
 revalidées côté serveur (ville choisie), échappement Twig (pas de `|raw` sur une donnée saisie).

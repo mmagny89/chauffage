@@ -18,10 +18,11 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 final class HeatingStartVoter extends Voter
 {
     public const DELETE = 'HEATING_START_DELETE';
+    public const REACH = 'HEATING_START_REACH';
 
     protected function supports(string $attribute, mixed $subject): bool
     {
-        return self::DELETE === $attribute && $subject instanceof HeatingStart;
+        return \in_array($attribute, [self::DELETE, self::REACH], true) && $subject instanceof HeatingStart;
     }
 
     protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool

@@ -1,0 +1,10 @@
+{# Cellules d'une ligne de précision : relevés, erreur moyenne, biais, part dans la tolérance. #}
+{% if stats is null %}
+    <td class="px-4 py-3 text-right">0</td>
+    <td class="px-4 py-3 text-right" colspan="3"><span aria-label="aucun relevé">—</span></td>
+{% else %}
+    <td class="px-4 py-3 text-right">{{ stats.count }}</td>
+    <td class="whitespace-nowrap px-4 py-3 text-right font-medium">{{ stats.meanAbsoluteError|number_format(1, ',') }} °C</td>
+    <td class="whitespace-nowrap px-4 py-3 text-right">{{ stats.bias > 0 ? '+' : '' }}{{ stats.bias|number_format(1, ',') }} °C</td>
+    <td class="whitespace-nowrap px-4 py-3 text-right">{{ (stats.withinTolerance * 100)|round }} %</td>
+{% endif %}

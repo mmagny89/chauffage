@@ -44,18 +44,21 @@ vise WCAG 2.2 AA : navigation au clavier, focus visible, cibles tactiles de 44 p
 
 ## État du projet
 
-Utilisable de bout en bout, version **0.3.0** (voir le [journal des versions](CHANGELOG.md)) ;
+Utilisable de bout en bout, version **0.4.0** (voir le [journal des versions](CHANGELOG.md)) ;
 production sur <https://chauffage.mmagny.fr>. Prévu ensuite : alertes par email et récapitulatif
 quotidien (nécessite un worker).
 
 | Domaine | Ce qui fonctionne aujourd'hui |
 |---|---|
-| **Comptes** | Inscription avec lien de confirmation, connexion, mot de passe oublié, changement de mot de passe (« Mon compte »). Un compte, un foyer. |
+| **Comptes** | Inscription avec lien de confirmation, connexion, mot de passe oublié, changement de mot de passe, export de ses données et suppression du compte (« Mon compte »). Un compte, un foyer. |
 | **Accueil** | Page de présentation pour un visiteur, tableau de bord pour un utilisateur connecté. |
 | **Lieux et relevés** | Lieux déclarés dans les réglages ; un relevé renseigne tous les lieux ; jauge de calibrage (cinq jours). |
 | **Écarts** | Moyenne par lieu et par moment de la journée ; modèle retenu et sa formule. |
 | **Prévisions** | Quinze jours, par moment de la journée, via Open-Meteo. |
 | **Volets** | Indication d'hiver pour aujourd'hui et demain : ouvrir au soleil, fermer au coucher. |
+| **Fiabilité** | Erreur des estimations mesurée sur vos relevés, par moment de la journée et par lieu ; pente typique réglable (à la main ou automatiquement). |
+| **Alertes et rappels** | Bandeau de gel ou de grand froid ; rappel de relevé (température hors plage, relevé ancien, calibrage inachevé). |
+| **Durée de chauffe** | Bouton « Consigne atteinte » sur les allumages ; vitesse de chauffe mesurée et durée annoncée sur les créneaux « Chauffer ». |
 | **Recommandations** | Chauffer ou couper, par jour et par créneau, pour le foyer et pour chaque pièce, avec les avertissements de fiabilité. |
 
 ## Démarrer en local

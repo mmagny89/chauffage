@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Calculation\DeltaModelFitter;
 use App\Enum\DaySlot;
 use App\Enum\Weekday;
 use App\Repository\HouseholdRepository;
@@ -49,6 +50,14 @@ class Household
     /** Date à laquelle la mise en route (ville, lieux, températures visées) a été terminée ; null tant qu'elle ne l'est pas. */
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $setupCompletedAt = null;
+
+    /** Pente typique de l'écart propre au foyer (de -0,9 à -0,1) ; null : valeur par défaut. */
+    #[ORM\Column(type: Types::DECIMAL, precision: 3, scale: 2, nullable: true)]
+    private ?string $typicalSlope = null;
+
+    /** Vrai : la pente typique est choisie par l'outil d'après la fiabilité mesurée sur les relevés. */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $autoTuneSlope = false;
 
     /**
      * @var Collection<int, HeatingTarget>
@@ -133,6 +142,33 @@ class Household
     public function completeSetup(\DateTimeImmutable $at): static
     {
         $this->setupCompletedAt ??= $at;
+
+        return $this;
+    }
+
+    public function getTypicalSlope(): ?float
+    {
+        return null === $this->typicalSlope ? null : (float) $this->typicalSlope;
+    }
+
+    public function setTypicalSlope(?float $slope): static
+    {
+        if (null !== $slope && ($slope < DeltaModelFitter::SLOPE_MIN || $slope > DeltaModelFitter::SLOPE_MAX)) {
+            throw new \InvalidArgumentException('La pente typique doit être comprise entre -0,9 et -0,1.');
+        }
+        $this->typicalSlope = null === $slope ? null : number_format($slope, 2, '.', '');
+
+        return $this;
+    }
+
+    public function isAutoTuneSlope(): bool
+    {
+        return $this->autoTuneSlope;
+    }
+
+    public function setAutoTuneSlope(bool $auto): static
+    {
+        $this->autoTuneSlope = $auto;
 
         return $this;
     }

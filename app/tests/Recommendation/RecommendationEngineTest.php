@@ -311,6 +311,44 @@ final class RecommendationEngineTest extends TestCase
         return $this->deltas($readings);
     }
 
+    public function testUpcomingHeatSlotsGetTheWarmUpTimeFromTheMeasuredRate(): void
+    {
+        // Matin à 5 °C : estimé 18,0 pour une cible de 20 (cf. TARGETS) : 2 °C à gagner, à 1 °C/h = 2 h.
+        $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
+        $days = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'afternoon' => 5.0])], $deltas, self::week());
+        $now = new \DateTimeImmutable('2026-10-09 07:00');
+        $rates = new \App\Calculation\HeatingRates(new \App\Calculation\HeatingRate(1.0, 3), ['cave' => new \App\Calculation\HeatingRate(4.0, 2)]);
+
+        $household = $this->engine->upcoming($days, $now, 1, null, null, $rates);
+        self::assertSame(HeatingAction::Heat, $household[0]->recommendation->action);
+        self::assertSame(120, $household[0]->recommendation->warmUpMinutes);
+
+        $cave = $this->engine->upcoming($days, $now, 1, null, 'Cave', $rates);
+        self::assertSame(30, $cave[0]->recommendation->warmUpMinutes, 'Vitesse propre à la pièce.');
+
+        $salon = $this->engine->upcoming($days, $now, 1, null, 'Salon', $rates);
+        self::assertSame(120, $salon[0]->recommendation->warmUpMinutes, 'Pièce sans vitesse propre : celle du foyer.');
+
+        self::assertNull($this->engine->upcoming($days, $now, 1)[0]->recommendation->warmUpMinutes, 'Sans vitesse mesurée.');
+        self::assertNull($days[0]->forSlot(DaySlot::Morning)->warmUpMinutes, 'Le calcul des quinze jours n’en porte pas.');
+    }
+
+    public function testNoWarmUpWhenTheHeatingIsAlreadyOnOrWhenCutting(): void
+    {
+        $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);
+        $days = $this->engine->recommend([$this->forecastDay(['morning' => 5.0, 'afternoon' => 14.0])], $deltas, self::week());
+        $now = new \DateTimeImmutable('2026-10-09 07:00');
+        $rates = new \App\Calculation\HeatingRates(new \App\Calculation\HeatingRate(1.0, 3));
+
+        $heated = $this->engine->upcoming($days, $now, 2, new \App\Calculation\HeatingDays(['2026-10-09' => ['salon']]), null, $rates);
+        self::assertTrue($heated[0]->recommendation->heatingOn);
+        self::assertNull($heated[0]->recommendation->warmUpMinutes);
+
+        $plain = $this->engine->upcoming($days, $now, 2, null, null, $rates);
+        self::assertSame(HeatingAction::Cut, $plain[1]->recommendation->action);
+        self::assertNull($plain[1]->recommendation->warmUpMinutes);
+    }
+
     public function testHeatingAlreadyOnTodayMarksOnlyTodaysUpcomingSlots(): void
     {
         $deltas = $this->deltas(['2026-10-08 08:00' => [5.0, 18.0]]);

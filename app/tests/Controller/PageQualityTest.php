@@ -52,6 +52,7 @@ final class PageQualityTest extends WebTestCase
         yield 'mon compte' => ['/compte', true];
         yield 'relevés' => ['/releves', true];
         yield 'écarts' => ['/ecarts', true];
+        yield 'fiabilité' => ['/fiabilite', true];
         yield 'réglages' => ['/reglages', true];
         yield 'réglages, recherche de ville' => ['/reglages?q=Lyon', true];
         yield 'prévisions' => ['/previsions', true];

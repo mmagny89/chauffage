@@ -13,7 +13,7 @@
 {% set sections = [
     {path: path('app_recommendations'), label: 'Recommandations', icon: 'flame', routes: ['app_recommendations']},
     {path: path('app_readings'), label: 'Relevés', icon: 'thermometer', routes: ['app_readings', 'app_reading_delete']},
-    {path: path('app_deltas'), label: 'Écarts', icon: 'gap', routes: ['app_deltas']},
+    {path: path('app_deltas'), label: 'Écarts', icon: 'gap', routes: ['app_deltas', 'app_accuracy']},
     {path: path('app_forecast'), label: 'Prévisions', icon: 'cloud', routes: ['app_forecast']},
 ] %}
 
@@ -40,8 +40,8 @@
                     </ul>
                 </nav>
                 <div class="mt-2 flex flex-col gap-1 border-t border-slate-100 pt-2 lg:mt-0 lg:min-w-0 lg:flex-row lg:items-center lg:gap-3 lg:border-0 lg:pt-0">
-                    <a href="{{ path('app_account') }}"{% if route == 'app_account' %} aria-current="page"{% endif %}
-                       class="inline-flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap lg:w-auto lg:px-2.5 {{ route == 'app_account' ? 'bg-slate-900 text-white' : 'text-slate-800 hover:bg-slate-100' }}">{{ ui.icon('user') }}Mon compte</a>
+                    <a href="{{ path('app_account') }}"{% if route starts with 'app_account' %} aria-current="page"{% endif %}
+                       class="inline-flex min-h-11 w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap lg:w-auto lg:px-2.5 {{ route starts with 'app_account' ? 'bg-slate-900 text-white' : 'text-slate-800 hover:bg-slate-100' }}">{{ ui.icon('user') }}Mon compte</a>
                     <a href="{{ logout_path() }}" title="Se déconnecter"
                        class="inline-flex min-h-11 min-w-11 w-fit items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-100">{{ ui.icon('logout', 'size-4') }}<span class="sr-only">Se déconnecter</span></a>
                 </div>
