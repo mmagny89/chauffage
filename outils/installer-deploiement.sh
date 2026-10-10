@@ -113,6 +113,14 @@ installer_projet() {
 	touch "$HOME/.ssh/authorized_keys"
 	chmod 600 "$HOME/.ssh/authorized_keys"
 
+	# Un fichier qui ne finit pas par un retour a la ligne (cle posee par l'hebergeur,
+	# par exemple) : sans lui, la ligne ajoutee se colle a la derniere et devient son
+	# commentaire. sshd l'ignore alors sans rien dire, et le deploiement repond
+	# « Permission denied (publickey) » alors que la cle est la bonne.
+	if [ -s "$HOME/.ssh/authorized_keys" ] && [ -n "$(tail -c 1 "$HOME/.ssh/authorized_keys")" ]; then
+		echo >> "$HOME/.ssh/authorized_keys"
+	fi
+
 	# La ligne est remplacee et non simplement ajoutee : un clone deplace, ou
 	# une premiere pose depuis le mauvais repertoire, laisse sinon une forced
 	# command pointant vers un chemin inexistant — et le deploiement echoue sur
