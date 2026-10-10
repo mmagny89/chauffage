@@ -8,6 +8,37 @@
 <h1 class="mb-1 flex items-center gap-2 text-2xl font-semibold"><span class="text-amber-600">{{ ui.icon('flame', 'size-7') }}</span>Tableau de bord</h1>
 <p class="mb-6 flex items-center gap-1.5 text-slate-700">{{ ui.icon('pin') }}{{ household.city }}</p>
 
+{% if frost %}
+    <section aria-labelledby="froid" class="mb-6 rounded-lg border {{ frost.level.value == 'severe' ? 'border-blue-400 bg-blue-50 text-blue-950' : 'border-sky-300 bg-sky-50 text-sky-950' }} p-4">
+        <h2 id="froid" class="mb-1 flex items-center gap-2 font-semibold">{{ ui.icon('alert', 'size-5') }}{{ frost.level.value == 'severe' ? 'Grand froid annoncé' : 'Gel annoncé' }}</h2>
+        <p class="text-sm">
+            Jusqu’à {{ frost.minimum|number_format(1, ',') }} °C prévus ({{ frost.slot.label|lower }}, {{ frost.date|date('d/m') }}).
+            {% if frost.level.value == 'severe' %}
+                Pensez aux canalisations exposées et gardez le chauffage hors gel dans les pièces inoccupées.
+            {% else %}
+                Pensez aux canalisations exposées, aux plantes et aux extérieurs.
+            {% endif %}
+        </p>
+    </section>
+{% endif %}
+
+{% if reminder %}
+    <section aria-labelledby="rappel" class="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950">
+        <h2 id="rappel" class="mb-1 flex items-center gap-2 font-semibold">{{ ui.icon('thermometer', 'size-5') }}Un relevé serait utile</h2>
+        <p class="text-sm">
+            {% if reminder.reason.value == 'out_of_range' %}
+                {{ reminder.forecast|number_format(1, ',') }} °C sont annoncés dehors ({{ reminder.slot.label|lower }}, {{ reminder.date|date('d/m') }}), alors que vos relevés vont de {{ reminder.measuredMin|number_format(1, ',') }} à {{ reminder.measuredMax|number_format(1, ',') }} °C. Un relevé par ce temps rendrait l’estimation plus sûre.
+            {% elseif reminder.reason.value == 'stale' %}
+                Votre dernier relevé date d’il y a {{ reminder.daysSince }} jours.
+            {% else %}
+                Il manque encore {{ reminder.daysMissing }} jour{{ reminder.daysMissing > 1 ? 's' : '' }} de relevés pour le calibrage, et vous n’en avez pas fait aujourd’hui.
+            {% endif %}
+            Chauffage éteint, de préférence.
+        </p>
+        <p class="mt-3"><a href="{{ path('app_readings') }}" class="inline-flex min-h-11 items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">{{ ui.icon('plus') }}Saisir un relevé</a></p>
+    </section>
+{% endif %}
+
 {% if rooms %}
     <section aria-labelledby="par-piece" class="mb-8">
         <h2 id="par-piece" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('home', 'size-5') }}Pièce par pièce</h2>
@@ -109,6 +140,7 @@
             {path: 'app_recommendations', icon: 'flame', title: 'Recommandations', text: 'Chauffer ou couper, jour par jour et pièce par pièce.'},
             {path: 'app_deltas', icon: 'gap', title: 'Écarts', text: 'De combien chaque pièce reste plus chaude que le dehors.'},
             {path: 'app_forecast', icon: 'cloud', title: 'Prévisions', text: 'Les températures extérieures des quinze prochains jours.'},
+            {path: 'app_accuracy', icon: 'target', title: 'Fiabilité', text: 'Les estimations tombent-elles juste ? L’erreur mesurée sur vos relevés.'},
         ] %}
         {% for link in links %}
             <li>

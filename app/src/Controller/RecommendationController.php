@@ -78,7 +78,7 @@ final class RecommendationController extends AbstractController
         $label = fn ($slot): string => $slot->recommendation->slot->label().' · '.$dayLabel($slot->date);
         $upcoming = array_map(
             static fn ($slot): array => ['label' => $label($slot), 'item' => $slot->recommendation],
-            $engine->upcoming($days, $now, self::UPCOMING, $analysis->heating, $selected?->getName()),
+            $engine->upcoming($days, $now, self::UPCOMING, $analysis->heating, $selected?->getName(), $analysis->rates),
         );
 
         // Pièce par pièce, pour les mêmes créneaux que le foyer entier : seulement les pièces à températures propres.
@@ -90,7 +90,7 @@ final class RecommendationController extends AbstractController
                 $placeRows[] = [
                     'place' => $place,
                     'hasReadings' => $analysis->hasReadingsFor($place->getName()),
-                    'cells' => array_map(static fn ($slot) => $slot->recommendation, $engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING, $analysis->heating, $place->getName())),
+                    'cells' => array_map(static fn ($slot) => $slot->recommendation, $engine->upcoming($set->places[(int) $place->getId()], $now, self::UPCOMING, $analysis->heating, $place->getName(), $analysis->rates)),
                 ];
             }
         }

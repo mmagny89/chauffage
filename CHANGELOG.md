@@ -10,6 +10,29 @@ règles métier et des pièges déjà payés vit dans [`CLAUDE.md`](CLAUDE.md).
 
 ## [Non publié]
 
+## [0.4.0] - 2026-10-10
+
+### Ajouté
+
+- **Fiabilité** (`/fiabilite`) : l'outil rejoue vos relevés pour mesurer ses propres erreurs d'estimation de
+  l'intérieur, par moment de la journée et par lieu, et dit si le modèle penche vers le trop chaud ou le trop
+  froid. Chaque séance est estimée sans elle-même ; le résultat est provisoire sous 8 séances.
+- **Alerte de froid** : un bandeau du tableau de bord annonce un gel (sous 0 °C) ou un grand froid (-5 °C ou
+  moins) prévu aujourd'hui ou demain.
+- **Pente typique réglable** : la page Fiabilité cherche la pente typique qui aurait le mieux prédit vos relevés et
+  la propose ; on peut l'appliquer, laisser l'outil la régler automatiquement, ou revenir à la valeur par défaut.
+- **Mes données** : téléchargement de toutes les données du compte (JSON) et suppression définitive du compte
+  (mot de passe et confirmation exigés) depuis « Mon compte ».
+- **Durée de chauffe** : un bouton « Consigne atteinte » sur chaque allumage note quand la pièce a atteint la
+  consigne. Dès deux allumages, l'outil en déduit une vitesse de chauffe (par pièce, sinon pour le foyer) et
+  ajoute « ≈ 1 h 30 pour y arriver » aux créneaux « Chauffer » à venir.
+- **Rappel de relevé** : le tableau de bord suggère un relevé quand une température annoncée sort de la plage déjà
+  relevée, quand le dernier a 7 jours ou plus, ou quand le calibrage n'est pas fini.
+
+### Modifié
+
+- **Déploiement** : seule la branche `main` déclenche un déploiement ; `develop` n'en déclenche plus.
+
 ## [0.3.0] - 2026-10-10
 
 ### Ajouté

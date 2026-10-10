@@ -1,0 +1,150 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Fiabilité{% endblock %}
+
+{% block body %}
+{% import 'partials/_icon.html.twig' as ui %}
+<h1 class="mb-2 flex items-center gap-2 text-2xl font-semibold"><span class="text-amber-600">{{ ui.icon('target', 'size-7') }}</span>Fiabilité des estimations</h1>
+<p class="mb-6 max-w-3xl text-slate-700">Pour chaque séance de relevés, l’outil refait l’estimation <strong>sans</strong> cette séance et la compare à ce que vous avez mesuré. Une estimation évaluée sur les relevés qui l’ont construite serait trop flatteuse. Cela concerne le calcul pour <strong>tout le foyer</strong>.</p>
+
+{% if report.empty %}
+    <div class="rounded-lg border border-slate-200 bg-white p-6">
+        <p class="mb-4 text-slate-700">Il faut au moins deux séances de relevés (deux dates ou heures différentes) pour comparer une estimation à une mesure.</p>
+        <a href="{{ path('app_readings') }}" class="inline-block rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Saisir des relevés</a>
+    </div>
+{% else %}
+    {% set overall = report.overall %}
+    {% if report.provisional %}
+        <div role="status" class="mb-6 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ ui.icon('alert', 'mt-0.5 size-4') }}<p>Résultats provisoires : {{ report.sessions }} séance{{ report.sessions > 1 ? 's' : '' }} de relevés sur {{ sessionsRequired }} pour conclure.
+            <a href="{{ path('app_readings') }}" class="underline underline-offset-2">Ajouter des relevés</a></p>
+        </div>
+    {% endif %}
+
+    <section aria-labelledby="bilan" class="mb-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 id="bilan" class="mb-2 text-lg font-semibold">En résumé</h2>
+        <p class="text-slate-800">
+            L’estimation de l’intérieur se trompe en moyenne de <strong>{{ overall.meanAbsoluteError|number_format(1, ',') }} °C</strong> ;
+            elle tombe à 1 °C près (la tolérance des recommandations) dans <strong>{{ (overall.withinTolerance * 100)|round }} %</strong> des {{ overall.count }} relevés.
+        </p>
+        {% if overall.biased %}
+            <p class="mt-2 flex items-start gap-2 text-sm text-slate-800">{{ ui.icon('alert', 'mt-0.5 size-4') }}
+                <span>
+                    {% if overall.bias > 0 %}
+                        Le modèle annonce en moyenne {{ overall.bias|number_format(1, ',') }} °C <strong>trop chaud</strong> : il peut conseiller de couper alors qu’il fait un peu frais.
+                    {% else %}
+                        Le modèle annonce en moyenne {{ (-overall.bias)|number_format(1, ',') }} °C <strong>trop froid</strong> : il peut conseiller de chauffer alors que ce n’est pas nécessaire.
+                    {% endif %}
+                </span>
+            </p>
+        {% endif %}
+    </section>
+
+    <section aria-labelledby="par-creneau" class="mb-8">
+        <h2 id="par-creneau" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('calendar', 'size-5') }}Par moment de la journée</h2>
+        <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table class="w-full text-left text-sm">
+                <caption class="sr-only">Erreur d’estimation de la température intérieure, par moment de la journée</caption>
+                <thead class="bg-slate-100 text-slate-700">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 font-semibold">Moment</th>
+                        <th scope="col" class="px-4 py-3 text-right font-semibold">Relevés</th>
+                        <th scope="col" class="px-4 py-3 text-right font-semibold">Erreur moyenne</th>
+                        <th scope="col" class="px-4 py-3 text-right font-semibold">Biais</th>
+                        <th scope="col" class="whitespace-nowrap px-4 py-3 text-right font-semibold">À 1 °C près</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for slot in slots %}
+                        <tr class="border-t border-slate-100">
+                            <th scope="row" class="sticky left-0 bg-white px-4 py-3 font-medium">{{ slot.label }}</th>
+                            {% include 'accuracy/_stats.html.twig' with {stats: report.bySlot[slot.value]|default(null)} %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section aria-labelledby="par-lieu" class="mb-8">
+        <h2 id="par-lieu" class="mb-3 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('home', 'size-5') }}Par lieu</h2>
+        <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table class="w-full text-left text-sm">
+                <caption class="sr-only">Erreur d’estimation de la température intérieure, par lieu</caption>
+                <thead class="bg-slate-100 text-slate-700">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 font-semibold">Lieu</th>
+                        <th scope="col" class="px-4 py-3 text-right font-semibold">Relevés</th>
+                        <th scope="col" class="px-4 py-3 text-right font-semibold">Erreur moyenne</th>
+                        <th scope="col" class="px-4 py-3 text-right font-semibold">Biais</th>
+                        <th scope="col" class="whitespace-nowrap px-4 py-3 text-right font-semibold">À 1 °C près</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for name, stats in report.byPlace %}
+                        <tr class="border-t border-slate-100">
+                            <th scope="row" class="sticky left-0 bg-white px-4 py-3 font-medium"><span class="inline-flex items-center gap-2">{{ ui.icon(place_icon(name)) }}{{ name }}</span></th>
+                            {% include 'accuracy/_stats.html.twig' with {stats: stats} %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="mt-3 text-sm text-slate-600">Le biais est l’erreur moyenne signée : positif, l’estimation annonçait trop chaud ; négatif, trop froid. Une pièce qui s’écarte beaucoup des autres est mal représentée par la moyenne du foyer : donnez-lui ses propres températures visées pour obtenir une recommandation pièce par pièce.</p>
+    </section>
+
+    <section aria-labelledby="pente" class="mb-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 id="pente" class="mb-2 flex items-center gap-2 text-lg font-semibold">{{ ui.icon('sliders', 'size-5') }}Pente typique</h2>
+        <p class="mb-3 max-w-3xl text-sm text-slate-700">
+            Tant que vos relevés sont peu variés, l’outil complète la pente de l’écart par une pente typique d’un logement sans chauffage. La valeur par défaut est {{ defaultSlope|number_format(2, ',') }}.
+            {% if auto %}
+                <strong>Réglage automatique actif</strong> : pente retenue {{ tuning.best|number_format(2, ',') }}.
+            {% elseif custom %}
+                Pente réglée pour votre foyer : {{ tuning.current|number_format(2, ',') }}.
+            {% endif %}
+        </p>
+
+        {% if not tuning.enoughData %}
+            <p class="mb-3 text-sm text-slate-700">Il faut au moins {{ sessionsRequired }} séances de relevés pour chercher une meilleure pente.</p>
+        {% elseif tuning.worthApplying %}
+            <p class="mb-3 text-sm text-slate-800">
+                {% if auto %}
+                    Avec {{ tuning.best|number_format(2, ',') }} plutôt que {{ defaultSlope|number_format(2, ',') }}, l’erreur moyenne passe de {{ tuning.currentError|number_format(1, ',') }} à {{ tuning.bestError|number_format(1, ',') }} °C.
+                {% else %}
+                    Une pente de <strong>{{ tuning.best|number_format(2, ',') }}</strong> aurait mieux prédit vos relevés : l’erreur moyenne passerait de {{ tuning.currentError|number_format(1, ',') }} à {{ tuning.bestError|number_format(1, ',') }} °C.
+                {% endif %}
+            </p>
+        {% else %}
+            <p class="mb-3 text-sm text-slate-700">Aucune autre pente ne ferait sensiblement mieux (moins de 0,1 °C de gain) : rien à régler.</p>
+        {% endif %}
+
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+            {% if tuning.worthApplying and not auto %}
+                <form method="post" action="{{ path('app_accuracy_slope') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('accuracy-slope') }}">
+                    <input type="hidden" name="action" value="apply">
+                    <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">{{ ui.icon('check') }}Appliquer {{ tuning.best|number_format(2, ',') }}</button>
+                </form>
+            {% endif %}
+            {% if not auto %}
+                <form method="post" action="{{ path('app_accuracy_slope') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('accuracy-slope') }}">
+                    <input type="hidden" name="action" value="auto_on">
+                    <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-500 bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-100 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Régler automatiquement</button>
+                </form>
+            {% endif %}
+            {% if auto or custom %}
+                <form method="post" action="{{ path('app_accuracy_slope') }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('accuracy-slope') }}">
+                    <input type="hidden" name="action" value="reset">
+                    <button type="submit" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-slate-500 bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-100 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Revenir à {{ defaultSlope|number_format(2, ',') }}</button>
+                </form>
+            {% endif %}
+        </div>
+    </section>
+
+    {% if report.skipped %}
+        <p class="text-sm text-slate-600">{{ report.skipped }} relevé{{ report.skipped > 1 ? 's' : '' }} n’{{ report.skipped > 1 ? 'ont' : 'a' }} pas pu être évalué{{ report.skipped > 1 ? 's' : '' }} : aucun autre relevé pour construire un modèle.</p>
+    {% endif %}
+{% endif %}
+{% endblock %}

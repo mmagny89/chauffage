@@ -63,7 +63,7 @@ Le suffixe d'environnement des noms de conteneurs, du reseau et des volumes
 | Branche | Environnement | Clone conseille |
 |---|---|---|
 | `develop` | pre-production (PPD) | `<racine>/chauffage-ppd` |
-| `main` | production | `<racine>/chauffage` |
+| `main` | production | `<racine>/chauffage-prod` |
 
 `<racine>` est l'endroit ou vous rangez vos projets — `/srv`, `/docker`,
 `/home/<utilisateur>`, peu importe. Les scripts d'outillage deduisent le
@@ -104,6 +104,12 @@ ssh -T git@github-chauffage
 L'alias evite d'imposer cette cle a tout `github.com`, et l'URL distante le
 retient : les `git pull` de redeploiement fonctionnent sans reconfiguration.
 
+> **Ordre.** Ce prealable se joue **avant** tout `git clone`, sur le serveur. Les commandes
+> de clone ci-dessous utilisent l'alias `github-chauffage` : tant qu'il n'est pas declare dans
+> `~/.ssh/config`, elles echouent sur `Could not resolve hostname`. Si le serveur lit deja vos
+> depots avec une cle commune (compte machine invite en lecture), cloner plutot depuis
+> `git@github.com:<compte>/chauffage.git` et passer ce prealable.
+
 ### Prealable : Traefik
 
 Relever la configuration du Traefik en place plutot que la supposer — nom du
@@ -115,7 +121,7 @@ demarrage, sans quoi Let's Encrypt ne peut pas emettre le certificat.
 ### Pre-production (PPD)
 
 ```sh
-git clone -b develop git@github.com:<compte>/chauffage.git <racine>/chauffage-ppd
+git clone -b develop git@github-chauffage:<compte>/chauffage.git <racine>/chauffage-ppd
 cd <racine>/chauffage-ppd
 cp .env.staging.local.dist .env.staging.local   # une fois, puis renseigner
 docker compose -f compose.yml -f compose.staging.yml --env-file .env.staging.local up -d --build --wait
@@ -124,8 +130,8 @@ docker compose -f compose.yml -f compose.staging.yml --env-file .env.staging.loc
 ### Production
 
 ```sh
-git clone -b main git@github.com:<compte>/chauffage.git <racine>/chauffage
-cd <racine>/chauffage
+git clone -b main git@github-chauffage:<compte>/chauffage.git <racine>/chauffage-prod
+cd <racine>/chauffage-prod
 cp .env.prod.local.dist .env.prod.local         # une fois, puis renseigner
 docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.local up -d --build --wait
 ```

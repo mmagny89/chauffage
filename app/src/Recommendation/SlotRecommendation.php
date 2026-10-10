@@ -25,6 +25,8 @@ final readonly class SlotRecommendation
         public ?ModelKind $method = null,
         public bool $extrapolated = false,
         public bool $heatingOn = false,
+        /** Durée estimée de la montée en température, en minutes ; null sans vitesse de chauffe mesurée. */
+        public ?int $warmUpMinutes = null,
     ) {
     }
 
@@ -42,7 +44,15 @@ final readonly class SlotRecommendation
      */
     public function withHeatingOn(): self
     {
-        return new self($this->slot, $this->action, $this->target, $this->outdoor, $this->delta, $this->estimatedIndoor, $this->deltaSamples, $this->deltaIsFallback, $this->forecastComplete, $this->method, $this->extrapolated, true);
+        return new self($this->slot, $this->action, $this->target, $this->outdoor, $this->delta, $this->estimatedIndoor, $this->deltaSamples, $this->deltaIsFallback, $this->forecastComplete, $this->method, $this->extrapolated, true, $this->warmUpMinutes);
+    }
+
+    /**
+     * Le même créneau, avec la durée estimée de la montée en température.
+     */
+    public function withWarmUp(int $minutes): self
+    {
+        return new self($this->slot, $this->action, $this->target, $this->outdoor, $this->delta, $this->estimatedIndoor, $this->deltaSamples, $this->deltaIsFallback, $this->forecastComplete, $this->method, $this->extrapolated, $this->heatingOn, $minutes);
     }
 
     public static function unknown(DaySlot $slot, float $target, ?float $outdoor, bool $forecastComplete): self

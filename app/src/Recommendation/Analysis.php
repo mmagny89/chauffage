@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Recommendation;
 
+use App\Calculation\DeltaModelFitter;
 use App\Calculation\DeltaModels;
 use App\Calculation\DeltaReport;
 use App\Calculation\HeatingDays;
+use App\Calculation\HeatingRates;
 
 /**
  * Ce que disent les relevés d'un foyer : les moyennes à afficher et les modèles à appliquer,
@@ -22,6 +24,10 @@ final readonly class Analysis
         public DeltaModels $models,
         public array $placeModels = [],
         public HeatingDays $heating = new HeatingDays(),
+        public ?\DateTimeImmutable $lastReadingAt = null,
+        /** Pente typique appliquée aux modèles : celle du foyer, ou la valeur par défaut. */
+        public float $typicalSlope = DeltaModelFitter::TYPICAL_SLOPE,
+        public HeatingRates $rates = new HeatingRates(),
     ) {
     }
 

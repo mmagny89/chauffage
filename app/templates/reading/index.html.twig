@@ -81,6 +81,13 @@
 <section id="chauffage" aria-labelledby="titre-chauffage" class="mb-10">
     <h2 id="titre-chauffage" class="mb-2 flex items-center gap-2 text-lg font-semibold"><span class="text-amber-600">{{ ui.icon('flame', 'size-5') }}</span>Allumages du chauffage</h2>
     <p class="mb-4 max-w-2xl text-sm text-slate-700">Notés avec un relevé, quand vous indiquez une consigne. Si vous avez noté un allumage aujourd’hui, les créneaux à venir du jour disent simplement « Chauffer », la consigne étant déjà réglée.</p>
+    <p class="mb-4 max-w-2xl text-sm text-slate-700">Quand la pièce a atteint la consigne, touchez « Consigne atteinte » : l’outil en déduit la vitesse de chauffe et annonce, pour les créneaux « Chauffer », le temps qu’il faudra pour y arriver.
+        {% if rates.household %}
+            Vitesse mesurée : <strong>{{ rates.household.degreesPerHour|number_format(1, ',') }} °C par heure</strong> ({{ rates.household.samples }} allumages).
+        {% else %}
+            Il en faut {{ minSamples }} pour donner une vitesse ; {{ rates.completed }} noté{{ rates.completed > 1 ? 's' : '' }} pour l’instant.
+        {% endif %}
+    </p>
         
         <div class="relative overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table class="w-full text-left text-sm">
@@ -92,6 +99,7 @@
                         <th scope="col" class="px-4 py-2 text-right font-medium">Extérieur</th>
                         <th scope="col" class="px-4 py-2 text-right font-medium">Température de la pièce</th>
                         <th scope="col" class="px-4 py-2 text-right font-medium">Consigne</th>
+                        <th scope="col" class="px-4 py-2 font-medium">Consigne atteinte</th>
                         <th scope="col" class="px-4 py-2"><span class="sr-only">Actions</span></th>
                     </tr>
                 </thead>
@@ -103,6 +111,18 @@
                             <td class="whitespace-nowrap px-4 py-2 text-right">{{ start.outdoorTemperature is null ? '—' : start.outdoorTemperature|number_format(1, ',') ~ ' °C' }}</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right">{{ start.indoorTemperature|number_format(1, ',') }} °C</td>
                             <td class="whitespace-nowrap px-4 py-2 text-right"><span class="inline-flex items-center gap-1 rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">{{ ui.icon('flame', 'size-3.5') }}{{ start.setpoint|number_format(1, ',') }} °C</span></td>
+                            <td class="whitespace-nowrap px-4 py-2">
+                                {% if start.reachedAt %}
+                                    {{ start.reachedAt|date('H:i') }} <span class="text-slate-600">({{ start.warmUpMinutes|duration }})</span>
+                                {% else %}
+                                    <form method="post" action="{{ path('app_heating_start_reached', {id: start.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('reach-heating-start-' ~ start.id) }}">
+                                        <button type="submit" class="inline-flex min-h-11 items-center gap-1.5 rounded-md border border-slate-500 bg-white px-3 text-sm font-medium text-slate-900 hover:bg-slate-100 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">
+                                            {{ ui.icon('check') }}Consigne atteinte<span class="sr-only"> pour {{ start.place.name }}, allumage du {{ start.startedAt|date('d/m/Y à H:i') }}</span>
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
                             <td class="px-4 py-2 text-right">
                                 <form method="post" action="{{ path('app_heating_start_delete', {id: start.id}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('delete-heating-start-' ~ start.id) }}">

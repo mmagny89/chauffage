@@ -31,7 +31,8 @@ final class DeltaController extends AbstractController
         return $this->render('delta/index.html.twig', [
             'report' => $analysis->report,
             'models' => $analysis->models,
-            'typicalSlope' => \App\Calculation\DeltaModelFitter::TYPICAL_SLOPE,
+            'typicalSlope' => $analysis->typicalSlope,
+            'slopeIsCustom' => $household->isAutoTuneSlope() || null !== $household->getTypicalSlope(),
             'slots' => DaySlot::chronological(),
             'daysDone' => $readings->countDays($household),
             'daysRequired' => Calibration::DAYS_REQUIRED,
