@@ -80,7 +80,8 @@ final class SecurityHeadersTest extends WebTestCase
     {
         $client = static::createClient(['debug' => false]);
 
-        $client->request('GET', '/');
+        // « / » est public (page de présentation) : une page protégée sert ici de redirection.
+        $client->request('GET', '/releves');
         self::assertResponseRedirects('/login');
         self::assertTrue($client->getResponse()->headers->has('Content-Security-Policy'));
 
