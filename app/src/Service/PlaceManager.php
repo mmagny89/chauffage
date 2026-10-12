@@ -6,6 +6,7 @@ namespace App\Service;
 
 use App\Entity\Household;
 use App\Entity\Place;
+use App\Enum\Exposure;
 use App\Exception\PlaceRejectedException;
 use App\Repository\PlaceRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -60,6 +61,15 @@ final readonly class PlaceManager
         }
 
         $place->setName($name);
+        $this->entityManager->flush();
+    }
+
+    /**
+     * @param iterable<Exposure> $exposures
+     */
+    public function setExposures(Place $place, iterable $exposures): void
+    {
+        $place->setExposures($exposures);
         $this->entityManager->flush();
     }
 

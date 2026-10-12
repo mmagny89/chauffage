@@ -13,6 +13,7 @@ use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
 use App\Enum\DaySlot;
+use App\Enum\Exposure;
 use PHPUnit\Framework\TestCase;
 
 final class DeltaModelFitterTest extends TestCase
@@ -147,6 +148,37 @@ final class DeltaModelFitterTest extends TestCase
 
         self::assertSame(DeltaModelFitter::SLOPE_MAX, $rising->slope);
         self::assertSame(DeltaModelFitter::SLOPE_MIN, $falling->slope);
+    }
+
+    public function testExposedWallsShiftThePlaceSlopeAroundTwoWalls(): void
+    {
+        $place = new Place($this->household, 'Salon');
+        self::assertSame(DeltaModelFitter::TYPICAL_SLOPE, DeltaModelFitter::placePrior($place), 'Exposition non renseignée : pente du foyer.');
+
+        $place->setExposures([Exposure::North, Exposure::East]);
+        self::assertEqualsWithDelta(-0.4, DeltaModelFitter::placePrior($place), 1e-9);
+
+        $place->setExposures([Exposure::North, Exposure::East, Exposure::West, Exposure::South]);
+        self::assertEqualsWithDelta(-0.2, DeltaModelFitter::placePrior($place), 1e-9);
+
+        $place->setExposures([Exposure::South]);
+        self::assertEqualsWithDelta(-0.5, DeltaModelFitter::placePrior($place), 1e-9);
+        self::assertEqualsWithDelta(-0.6, DeltaModelFitter::placePrior($place, -0.5), 1e-9, 'Part de la pente du foyer.');
+        self::assertSame(DeltaModelFitter::SLOPE_MIN, DeltaModelFitter::placePrior($place, -0.9), 'Bornée.');
+    }
+
+    public function testFitPlacesUsesTheExposureForAPlaceWithASingleReading(): void
+    {
+        $corner = new Place($this->household, 'Angle');
+        $corner->setExposures([Exposure::North, Exposure::East, Exposure::West]);
+        $inner = new Place($this->household, 'Intérieure');
+        $inner->setExposures([Exposure::South]);
+        $at = new \DateTimeImmutable('2026-10-08 08:00');
+
+        $models = $this->fitter->fitPlaces([new Reading($corner, $at, 5.0, 15.0), new Reading($inner, $at, 5.0, 15.0)]);
+
+        self::assertEqualsWithDelta(-0.3, ($models['angle']->overall ?? self::fail('Modèle absent.'))->slope, 1e-9);
+        self::assertEqualsWithDelta(-0.5, ($models['intérieure']->overall ?? self::fail('Modèle absent.'))->slope, 1e-9);
     }
 
     public function testFitPlacesGivesEachPlaceItsOwnModelIgnoringCase(): void

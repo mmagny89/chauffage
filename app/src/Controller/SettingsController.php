@@ -9,6 +9,7 @@ use App\Dto\PlaceTargetsInput;
 use App\Dto\TargetsInput;
 use App\Entity\User;
 use App\Enum\DaySlot;
+use App\Enum\Exposure;
 use App\Enum\Weekday;
 use App\Form\PlaceTargetsType;
 use App\Form\WeekTargetsType;
@@ -113,6 +114,7 @@ final class SettingsController extends AbstractController
             'household' => $household,
             'setup' => $household->isSetUp() ? null : $this->checklist->progress($household),
             'places' => $places,
+            'exposures' => Exposure::cases(),
             'placeChoices' => $this->rooms->availableChoices(array_map(static fn ($p): string => $p->getName(), $places)),
             'form' => $form,
             'placeForm' => $placeForm,

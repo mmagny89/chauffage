@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Entity;
 
 use App\Enum\DaySlot;
+use App\Enum\Exposure;
 use App\Repository\PlaceRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -40,6 +41,14 @@ class Place
     private \DateTimeImmutable $createdAt;
 
     /**
+     * Valeurs d'Exposure des murs donnant sur l'extérieur ; vide = non renseigné.
+     *
+     * @var list<string>
+     */
+    #[ORM\Column(type: Types::JSON)]
+    private array $exposures = [];
+
+    /**
      * @var Collection<int, PlaceTarget>
      */
     #[ORM\OneToMany(targetEntity: PlaceTarget::class, mappedBy: 'place', cascade: ['persist'], orphanRemoval: true)]
@@ -71,6 +80,30 @@ class Place
     public function setName(string $name): static
     {
         $this->name = trim($name);
+
+        return $this;
+    }
+
+    /**
+     * Les murs donnant sur l'extérieur, dans l'ordre Nord, Est, Sud, Ouest.
+     *
+     * @return list<Exposure>
+     */
+    public function getExposures(): array
+    {
+        return array_values(array_filter(Exposure::cases(), fn (Exposure $exposure): bool => \in_array($exposure->value, $this->exposures, true)));
+    }
+
+    /**
+     * @param iterable<Exposure> $exposures
+     */
+    public function setExposures(iterable $exposures): static
+    {
+        $values = [];
+        foreach ($exposures as $exposure) {
+            $values[$exposure->value] = true;
+        }
+        $this->exposures = array_values(array_map(static fn (Exposure $e): string => $e->value, array_filter(Exposure::cases(), static fn (Exposure $e): bool => isset($values[$e->value]))));
 
         return $this;
     }
