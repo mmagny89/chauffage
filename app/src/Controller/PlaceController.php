@@ -6,6 +6,7 @@ namespace App\Controller;
 
 use App\Entity\Place;
 use App\Entity\User;
+use App\Enum\Exposure;
 use App\Exception\PlaceRejectedException;
 use App\Security\Voter\PlaceVoter;
 use App\Service\HouseholdProvider;
@@ -61,6 +62,24 @@ final class PlaceController extends AbstractController
         } catch (PlaceRejectedException $exception) {
             $this->addFlash('error', $exception->getMessage());
         }
+
+        return $this->redirectToRoute('app_settings', ['_fragment' => 'lieux']);
+    }
+
+    #[Route('/{id}/exposition', name: 'app_place_exposure', requirements: ['id' => '\d+'], methods: ['POST'])]
+    public function exposure(Place $place, Request $request): RedirectResponse
+    {
+        $this->denyAccessUnlessGranted(PlaceVoter::MANAGE, $place);
+        if (!$this->isCsrfTokenValid('place-exposure-'.$place->getId(), (string) $request->request->get('_token'))) {
+            return $this->expired();
+        }
+
+        $exposures = array_filter(array_map(
+            static fn (mixed $value): ?Exposure => \is_string($value) ? Exposure::tryFrom($value) : null,
+            $request->request->all('exposures'),
+        ));
+        $this->manager->setExposures($place, $exposures);
+        $this->addFlash('success', \sprintf('Exposition enregistrée : %s.', $place->getName()));
 
         return $this->redirectToRoute('app_settings', ['_fragment' => 'lieux']);
     }

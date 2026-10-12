@@ -10,6 +10,20 @@ règles métier et des pièges déjà payés vit dans [`CLAUDE.md`](CLAUDE.md).
 
 ## [Non publié]
 
+## [0.5.0] - 2026-10-12
+
+### Ajouté
+
+- **Exposition des pièces** : dans les réglages, on indique pour chaque lieu les murs qui donnent sur l'extérieur
+  (Nord, Est, Sud, Ouest). Plus une pièce a de murs sur l'extérieur, plus l'outil suppose qu'elle suit la
+  température du dehors, ce qui affine l'écart de la pièce tant que ses relevés sont peu variés. L'orientation
+  précise (soleil) n'entre pas encore dans le calcul.
+
+### Modifié
+
+- **Températures au dixième** : la température intérieure estimée (« dedans ≈ ») s'affiche avec une décimale, comme
+  la décision qui la compare à la cible (17,9 °C pour une cible de 19 °C coupe, 17,8 °C chauffe).
+
 ## [0.4.0] - 2026-10-10
 
 ### Ajouté

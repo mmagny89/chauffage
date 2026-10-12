@@ -98,9 +98,23 @@
                         <input type="hidden" name="_token" value="{{ csrf_token('place-delete-' ~ place.id) }}">
                         <button type="submit" class="inline-flex min-h-11 items-center rounded px-2 text-sm text-slate-800 gap-1.5 underline underline-offset-2 hover:text-red-700 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">{{ ui.icon('trash') }}Supprimer<span class="sr-only"> {{ place.name }}</span></button>
                     </form>
+                    <form method="post" action="{{ path('app_place_exposure', {id: place.id}) }}" class="w-full pl-8">
+                        <input type="hidden" name="_token" value="{{ csrf_token('place-exposure-' ~ place.id) }}">
+                        <fieldset class="flex flex-wrap items-center gap-x-4">
+                            <legend class="mb-1 text-sm text-slate-700">Murs donnant sur l’extérieur</legend>
+                            {% for exposure in exposures %}
+                                <label for="exposition-{{ place.id }}-{{ exposure.value }}" class="inline-flex min-h-11 items-center gap-2 text-sm">
+                                    <input type="checkbox" id="exposition-{{ place.id }}-{{ exposure.value }}" name="exposures[]" value="{{ exposure.value }}" class="size-5"{{ exposure in place.exposures ? ' checked' }}>
+                                    {{ exposure.label }}
+                                </label>
+                            {% endfor %}
+                            <button type="submit" class="inline-flex min-h-11 items-center rounded px-2 text-sm text-slate-800 underline underline-offset-2 hover:text-slate-950 focus:outline-2 focus:outline-offset-2 focus:outline-slate-900">Enregistrer<span class="sr-only"> l’exposition de {{ place.name }}</span></button>
+                        </fieldset>
+                    </form>
                 </li>
             {% endfor %}
         </ul>
+        <p class="mb-2 max-w-2xl text-xs text-slate-500">L’exposition affine le calcul des écarts d’une pièce : plus elle a de murs sur l’extérieur, plus elle suit la température du dehors. Cela ne pèse que tant que ses relevés sont peu variés ; ensuite, ses mesures l’emportent.</p>
         <p class="mb-4 text-xs text-slate-500">Supprimer un lieu supprime aussi tous ses relevés.</p>
     {% endif %}
 

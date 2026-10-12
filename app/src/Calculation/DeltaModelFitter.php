@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Calculation;
 
+use App\Entity\Place;
 use App\Entity\Reading;
 
 /**
@@ -24,6 +25,9 @@ use App\Entity\Reading;
  * pente est bornée à [SLOPE_MIN ; SLOPE_MAX] (un intérieur indépendant du dehors, ou qui le
  * suit à l'identique, ne se rencontre pas dans un logement). Calcul pur.
  *
+ * Exposition : fitPlaces décale la pente typique de chaque pièce de WALL_SLOPE_STEP par mur
+ * extérieur au-delà de NEUTRAL_WALLS (placePrior). N'agit que sur les pièces aux relevés peu variés.
+ *
  * Hypothèses, à réviser avec des données réelles : la pente typique de l'écart (−0,4, soit
  * 0,6 pour l'intérieur) d'après la littérature sur les bâtiments non climatisés, et la force
  * du tirage λ = 25 °C² (bruit des relevés d'environ 1 °C face à une incertitude d'environ 0,2
@@ -39,6 +43,16 @@ final class DeltaModelFitter
 
     public const SLOPE_MIN = -0.9;
     public const SLOPE_MAX = -0.1;
+
+    /**
+     * Effet d'un mur extérieur de plus sur la pente typique d'une pièce, par rapport à
+     * NEUTRAL_WALLS : plus une pièce a de murs sur l'extérieur, plus elle suit le dehors, donc
+     * moins l'écart se creuse (pente moins négative). Hypothèse, comme la pente typique.
+     */
+    public const WALL_SLOPE_STEP = 0.1;
+
+    /** Nombre de murs extérieurs qui laisse la pente typique du foyer inchangée. */
+    public const NEUTRAL_WALLS = 2;
 
     /** Part des relevés à partir de laquelle on parle de régression plutôt que de pente typique. */
     public const REGRESSION_WEIGHT = 0.5;
@@ -60,7 +74,23 @@ final class DeltaModelFitter
             $byPlace[mb_strtolower($reading->getPlace()->getName())][] = $reading;
         }
 
-        return array_map(fn (array $placeReadings): DeltaModels => $this->fit($placeReadings, $typicalSlope), $byPlace);
+        return array_map(fn (array $placeReadings): DeltaModels => $this->fit($placeReadings, self::placePrior($placeReadings[0]->getPlace(), $typicalSlope)), $byPlace);
+    }
+
+    /**
+     * Pente typique d'une pièce : celle du foyer, décalée selon le nombre de ses murs extérieurs.
+     * Une pièce dont l'exposition n'est pas renseignée garde la pente du foyer. Ne pèse que tant
+     * que les relevés de la pièce sont peu variés, comme toute pente typique.
+     */
+    public static function placePrior(Place $place, ?float $typicalSlope = null): float
+    {
+        $base = $typicalSlope ?? self::TYPICAL_SLOPE;
+        $walls = \count($place->getExposures());
+        if (0 === $walls) {
+            return $base;
+        }
+
+        return max(self::SLOPE_MIN, min(self::SLOPE_MAX, $base + self::WALL_SLOPE_STEP * ($walls - self::NEUTRAL_WALLS)));
     }
 
     /**

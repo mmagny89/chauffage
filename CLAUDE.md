@@ -125,8 +125,9 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   (signalé « écart général »). Hypothèses à réviser avec des données réelles : −0,4 et λ.
 - **Recommandation** : intérieur estimé = prévision + écart du modèle à cette température.
   **Sous la cible de plus de 1 °C (`TOLERANCE_TENTHS`) → chauffer à la cible ; écart d'1 °C ou moins, ou au-dessus → couper** (1 °C d'écart est jugé tolérable).
-  Cible = celle du jour de la semaine et du créneau. La température intérieure s'affiche à l'unité
-  (une précision au dixième serait fausse). Prévision hors de la plage relevée (marge 3 °C) →
+  Cible = celle du jour de la semaine et du créneau. La température intérieure s'affiche **au dixième**
+  (comme la décision, prise au dixième : 17,9 °C pour une cible de 19 coupe de justesse, 17,8 chauffe ; arrondie à l'unité,
+  « 18 » pour « 19 » aurait pu dire l'inverse). Le dixième est une précision d'affichage, pas de mesure. Prévision hors de la plage relevée (marge 3 °C) →
   « hors plage mesurée ». Lignes grisées au-delà de 7 jours ; résultats « provisoires »
   sous 5 jours de relevés (`Calibration::DAYS_REQUIRED`).
 - **Recommandation par pièce** (`?piece=<id>`, onglets « Tout le foyer » + une pièce chacune, un
@@ -141,6 +142,12 @@ Chacune est figée par des tests ; en changer une, c'est changer ses tests et ce
   sans relevé reçoit l'estimation du foyer, signalée. Un identifiant de pièce inconnu ou d'un autre
   foyer est une 404 ; la vue d'ensemble reste la moyenne de tous les relevés, qui peut masquer une
   pièce plus froide que les autres.
+- **Exposition des pièces** (`Place::exposures`, `Exposure` : murs Nord/Est/Sud/Ouest donnant sur l'extérieur, cases à cocher dans
+  les réglages) : agit **uniquement** sur la pente typique de la pièce (`DeltaModelFitter::placePrior`, via `fitPlaces`) :
+  ± `WALL_SLOPE_STEP` (0,1) par mur extérieur autour de `NEUTRAL_WALLS` (2), pente bornée ; exposition non renseignée = pente du
+  foyer. Plus de murs sur l'extérieur → la pièce suit mieux le dehors → l'écart se creuse moins. Ne pèse que tant que les relevés de
+  la pièce sont peu variés (tirage vers la pente typique) ; sans relevé, pas d'effet. **Hypothèses** (0,1 et 2), pas des mesures.
+  L'orientation précise (soleil) n'entre pas dans le calcul : il faudrait l'ensoleillement horaire prévu.
 - **Volets** (`App\Shutter`, carte « Volets » du tableau de bord, aujourd'hui et demain) : indication d'**hiver**
   seulement, pour tout le foyer, sans relevé ni orientation. `ShutterAdvisor` (calcul pur) : moyenne du jour
   ≥ 15 °C (`COLD_BELOW_TENTHS`) → rien à signaler ; sinon, soleil ≥ la moitié du jour (`SUNNY_SHARE`) → ouvrir au

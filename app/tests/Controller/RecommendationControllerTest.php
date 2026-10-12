@@ -83,12 +83,12 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertCount(15, $rows);
         $cells = $rows->first()->filter('td');
         self::assertStringContainsString('Chauffer à 19,0 °C', $cells->eq(0)->text());
-        self::assertStringContainsString('dedans ≈ 17 °C', $cells->eq(0)->text());
+        self::assertStringContainsString('dedans ≈ 17,1 °C', $cells->eq(0)->text());
         self::assertStringContainsString('Couper', $cells->eq(1)->text());
         self::assertStringContainsString('dehors 14,5 °C', $cells->eq(1)->text());
-        self::assertStringContainsString('dedans ≈ 21 °C', $cells->eq(1)->text());
+        self::assertStringContainsString('dedans ≈ 20,7 °C', $cells->eq(1)->text());
         self::assertStringContainsString('Couper', $cells->eq(2)->text());
-        self::assertStringContainsString('dedans ≈ 24 °C', $cells->eq(2)->text(), 'Pas 29,5 : l’écart se réduit quand il fait doux.');
+        self::assertStringContainsString('dedans ≈ 23,7 °C', $cells->eq(2)->text(), 'Pas 29,5 : l’écart se réduit quand il fait doux.');
         self::assertStringContainsString('Couper', $cells->eq(3)->text(), 'Nuit : 16,5 à 0,5 °C de la cible de 17, toléré.');
     }
 
@@ -220,8 +220,8 @@ final class RecommendationControllerTest extends WebTestCase
         $crawler = $this->client->request('GET', '/recommandations');
 
         $cells = $crawler->filter('tbody tr')->first()->filter('td');
-        // Matin : 8,5 + (8 − 0,4 × 8,5 = 4,6) = 13,1, affiché à l'unité
-        self::assertStringContainsString('dedans ≈ 13 °C', $cells->eq(0)->text());
+        // Matin : 8,5 + (8 − 0,4 × 8,5 = 4,6) = 13,1, affiché au dixième
+        self::assertStringContainsString('dedans ≈ 13,1 °C', $cells->eq(0)->text());
         self::assertStringNotContainsString('hors plage mesurée', $cells->eq(0)->text());
         // Après-midi : 14,5 reste dans la marge (14 + 3) ; soirée : 19,5 la dépasse.
         self::assertStringNotContainsString('hors plage mesurée', $cells->eq(1)->text());
@@ -253,10 +253,10 @@ final class RecommendationControllerTest extends WebTestCase
         self::assertCount(2, $rows);
         self::assertStringStartsWith('Cave', $rows->eq(0)->filter('th')->text(), 'Pièces par ordre alphabétique.');
         self::assertStringContainsString('Chauffer à 19,0 °C', $rows->eq(0)->filter('td')->eq(0)->text());
-        self::assertStringContainsString('dedans ≈ 14 °C', $rows->eq(0)->filter('td')->eq(0)->text());
+        self::assertStringContainsString('dedans ≈ 13,7 °C', $rows->eq(0)->filter('td')->eq(0)->text());
         self::assertStringStartsWith('Salon', $rows->eq(1)->filter('th')->text());
         self::assertStringContainsString('Couper', $rows->eq(1)->filter('td')->eq(0)->text());
-        self::assertStringContainsString('dedans ≈ 21 °C', $rows->eq(1)->filter('td')->eq(0)->text());
+        self::assertStringContainsString('dedans ≈ 20,7 °C', $rows->eq(1)->filter('td')->eq(0)->text());
     }
 
     public function testHeatingNotedTodayMarksTodaysUpcomingSlotsOnlyAsChauffer(): void
@@ -336,7 +336,7 @@ final class RecommendationControllerTest extends WebTestCase
         // Matin du vendredi (cible 19), prévu à 8,5 : écart de la cave 3 − 0,4 × 3,5 = 1,6, soit 10,1 dedans → chauffer.
         $first = $crawler->filter('tbody tr')->first()->filter('td')->eq(0)->text();
         self::assertStringContainsString('Chauffer à 19,0 °C', $first);
-        self::assertStringContainsString('dedans ≈ 10 °C', $first);
+        self::assertStringContainsString('dedans ≈ 10,1 °C', $first);
         self::assertCount(15, $crawler->filter('tbody tr'));
         self::assertSelectorNotExists('[role=status]:contains("Aucun relevé pour")');
     }
@@ -405,7 +405,7 @@ final class RecommendationControllerTest extends WebTestCase
 
         $view = $this->client->request('GET', '/recommandations', ['piece' => (string) $garage->getId()]);
         self::assertStringContainsString('Aucun relevé pour « Garage »', implode(' ', $view->filter('[role=status]')->each(static fn ($n) => $n->text())));
-        $estimate = static fn (string $cell): string => preg_match('/dedans ≈ \d+ °C/', $cell, $match) ? $match[0] : '';
+        $estimate = static fn (string $cell): string => preg_match('/dedans ≈ \d+,\d °C/', $cell, $match) ? $match[0] : '';
         self::assertSame(
             $estimate($crawler->filter('#quinze-jours + div tbody tr')->first()->filter('td')->eq(1)->text()),
             $estimate($view->filter('#quinze-jours + div tbody tr')->first()->filter('td')->eq(1)->text()),
