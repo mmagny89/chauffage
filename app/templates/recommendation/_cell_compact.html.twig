@@ -4,5 +4,5 @@
     <span aria-label="pas de recommandation" class="inline-flex items-center gap-1 text-slate-500">{{ ui.icon('help') }}<span aria-hidden="true">—</span></span>
 {% else %}
     {% include 'recommendation/_badge.html.twig' %}
-    <span class="mt-1 flex items-center gap-1 text-xs text-slate-600">{{ ui.icon('home', 'size-3.5') }}dedans ≈ {{ item.estimatedIndoor|round|number_format(0, ',') }} °C{% if item.extrapolated %}<span title="Hors plage mesurée : estimation moins fiable"> *</span>{% endif %}</span>
+    <span class="mt-1 flex items-center gap-1 text-xs text-slate-600">{{ ui.icon('home', 'size-3.5') }}dedans ≈ {{ item.estimatedIndoor|number_format(1, ',') }} °C{% if item.extrapolated %}<span title="Hors plage mesurée : estimation moins fiable"> *</span>{% endif %}</span>
 {% endif %}
