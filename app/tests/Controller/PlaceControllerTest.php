@@ -8,6 +8,7 @@ use App\Entity\Household;
 use App\Entity\Place;
 use App\Entity\Reading;
 use App\Entity\User;
+use App\Enum\Exposure;
 use App\Service\PlaceManager;
 use App\Service\RoomCatalog;
 use Doctrine\ORM\EntityManagerInterface;
@@ -208,6 +209,35 @@ final class PlaceControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(403);
 
         self::assertSame(['Salon'], $this->placeNames($owner));
+    }
+
+    public function testSavesTheExposureOfAPlaceAndIgnoresUnknownValues(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $place = $this->createPlace($user, 'Salon');
+        $this->client->loginUser($user);
+
+        $crawler = $this->client->request('GET', '/reglages');
+        $token = (string) $crawler->filter(\sprintf('form[action="/reglages/lieux/%d/exposition"] input[name=_token]', $place->getId()))->attr('value');
+        $this->client->request('POST', '/reglages/lieux/'.$place->getId().'/exposition', ['exposures' => ['west', 'north', 'bogus', 'west'], '_token' => $token]);
+
+        self::assertResponseRedirects('/reglages#lieux');
+        $this->em->clear();
+        $saved = $this->em->getRepository(Place::class)->find($place->getId());
+        self::assertSame([Exposure::North, Exposure::West], $saved?->getExposures());
+    }
+
+    public function testExposureWithInvalidCsrfTokenIsRefused(): void
+    {
+        $user = $this->createUser('a@example.com');
+        $place = $this->createPlace($user, 'Salon');
+        $this->client->loginUser($user);
+
+        $this->client->request('POST', '/reglages/lieux/'.$place->getId().'/exposition', ['exposures' => ['north'], '_token' => 'invalide']);
+
+        self::assertResponseRedirects('/reglages#lieux');
+        $this->em->clear();
+        self::assertSame([], $this->em->getRepository(Place::class)->find($place->getId())?->getExposures());
     }
 
     public function testRenameAndDeleteWithInvalidCsrfTokenAreRefused(): void
