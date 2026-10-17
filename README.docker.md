@@ -1,8 +1,7 @@
 # chauffage — socle Docker
 
 Genere par `.claude/scripts/setup-symfony.sh` le 2026-10-09. Symfony sur
-FrankenPHP (Caddy integre, mode worker), PostgreSQL, observabilite via
-Ember. Rendu Twig, styles TailwindCSS via AssetMapper (`symfonycasts/tailwind-bundle`, pas de Node cote PHP).
+FrankenPHP (Caddy integre, mode worker), PostgreSQL. Rendu Twig, styles TailwindCSS via AssetMapper (`symfonycasts/tailwind-bundle`, pas de Node cote PHP).
 Projet **non headless** : pas de front separe, pas de service Node.
 
 Serveur staging/prod : partage. Traefik en frontal (reseau externe `traefik`), TLS gere par Traefik, TRUSTED_PROXIES a declarer cote Symfony pour le reseau du proxy..
@@ -14,7 +13,7 @@ Serveur staging/prod : partage. Traefik en frontal (reseau externe `traefik`), T
 | `.env` | Variables Docker Compose : versions, ports, UID/GID, `POSTGRES_*` |
 | `.env.staging.local.dist` / `.env.prod.local.dist` | Modeles de secrets, committes |
 | `.env.staging.local` / `.env.prod.local` | Secrets reels — jamais committes |
-| `compose.yml` | Socle : services `php`, `database`, `ember` |
+| `compose.yml` | Socle : services `php`, `database` |
 | `compose.dev.yml` | Ajoute `mailpit`, qui retient les emails de developpement |
 | `compose.dev.yml` / `compose.staging.yml` / `compose.prod.yml` | Overrides par environnement |
 | `docker/php/**` | Dockerfile, Caddyfile(s), scripts d'entrypoint/healthcheck/installation |
@@ -46,7 +45,6 @@ docker compose exec php php bin/console tailwind:build --watch
 | `HTTPS_PORT` | 443 | dev |
 | `HTTP3_PORT` | 443/udp | dev |
 | `POSTGRES_PORT` | 5432 | dev uniquement, sur `127.0.0.1` |
-| `EMBER_PORT` | 9191 | dev et, sur `127.0.0.1`, staging/prod |
 | `MAILPIT_PORT` | 8025 | dev uniquement, sur `127.0.0.1` — interface web de l'attrapeur d'emails ; son port SMTP (1025) reste interne |
 
 
@@ -209,30 +207,6 @@ Les volumes survivent au rebuild. **Ne jamais passer `--volumes`** a
 
 ### Observabilite
 
-L'interface temps reel d'Ember — trafic par hote, percentiles, graphes
-CPU/RPS/RSS (touche `g`), threads et workers FrankenPHP, certificats,
-logs en direct. Le service tourne en `--daemon` (exportateur sans
-interface) : l'interface s'obtient par une seconde instance jetable.
-
-```sh
-docker compose run --rm -it ember --addr unix//run/caddy/admin.sock
-```
-
-Instantane pour un script (preferable a parser /metrics) :
-
-```sh
-docker compose run --rm ember --addr unix//run/caddy/admin.sock --json --once
-```
-
-Exportateur Prometheus d'Ember, port 9191. Une seule metrique y est
-utile, `frankenphp_threads_total` (saturation du pool de workers) : ses
-metriques HTTP font doublon avec celles de Caddy, en moins bien. Ne pas
-batir de panneau de trafic ou de latence dessus.
-
-```sh
-curl http://127.0.0.1:9191/metrics
-```
-
 Metriques Caddy — la source pour tout ce qui est HTTP : trafic, codes, histogrammes de
 latence. Port interne 2020, jamais publie — joignable depuis le reseau du projet uniquement, et
 seulement une fois l'application installee :
@@ -241,8 +215,3 @@ seulement une fois l'application installee :
 docker run --rm --network chauffage curlimages/curl:latest \
   -s http://chauffage-php:2020/metrics
 ```
-
-En dev, Ember demarre avec le reste du stack. En staging/prod :
-`--profile observability`, sauf si l'hote est supervise (conventions,
-section 9c). Ce que ce stack expose :
-`.claude/references/observabilite.md`.

@@ -28,7 +28,6 @@ services:
     networks:
       - chauffage
       - traefik
-      - monitoring
     labels:
       traefik.enable: "true"
       # Le service est attache a deux reseaux : sans cette etiquette, Traefik
@@ -40,14 +39,7 @@ services:
       traefik.http.routers.chauffage-staging.tls.certresolver: letsencrypt
       traefik.http.services.chauffage-staging.loadbalancer.server.port: "80"
 
-  ember:
-    networks:
-      - chauffage
-      - monitoring
-
 networks:
   chauffage:
   traefik:
-    external: true
-  monitoring:
     external: true
