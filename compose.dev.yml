@@ -36,10 +36,6 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT}:5432"
 
-  ember:
-    ports:
-      - "${EMBER_PORT}:9191"
-
   # Attrapeur d'emails, developpement uniquement (section 8b) : absent de
   # compose.yml, donc de staging et de production, qui portent un vrai
   # transport dans leur fichier de secrets. Sans lui, eprouver un email en
