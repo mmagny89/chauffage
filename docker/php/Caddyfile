@@ -31,7 +31,7 @@
 	}
 
 	# API d'administration de Caddy exposee uniquement via un socket Unix
-	# partage avec le conteneur Ember (observabilite) — jamais via un port
+	# partage (volume caddy-admin) — jamais via un port
 	# TCP publie.
 	admin unix//run/caddy/admin.sock
 }
@@ -64,13 +64,7 @@
 
 # Ecoute interne dediee aux metriques Prometheus (conventions, sections 4 et 9).
 # JAMAIS publiee sur l'hote : elle n'est jointe que depuis le reseau
-# `monitoring`, par le Prometheus de l'hote. Un port publie exposerait
-# publiquement la latence, les codes d'erreur et le volume de trafic du site.
-#
-# Ce que ce handler ajoute par rapport a Ember : de vrais histogrammes
-# (`caddy_http_request_duration_seconds_bucket`, etiquetes par code, handler,
-# methode), donc des percentiles calculables. Ember n'expose que des moyennes
-# deja agregees, qui ne se re-decomposent pas.
+# du projet. Un port publie exposerait publiquement la latence, les codes d'erreur et le volume de trafic du site.
 :2020 {
 	metrics
 }
