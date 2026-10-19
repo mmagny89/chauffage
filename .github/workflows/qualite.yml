@@ -160,14 +160,17 @@ jobs:
           php bin/console doctrine:migrations:migrate --no-interaction
           php bin/console doctrine:schema:validate
 
-  deploiement:
+  deploiement-prod:
     name: Deploiement
     needs: qualite
-    # Jamais sur une pull request : une PR d'un depot tiers deploierait du
-    # code non relu. Seule main part en production : il n'y a pas
-    # d'environnement de pre-production, develop ne deploie rien (la cle de
-    # deploiement n'existe d'ailleurs que pour « prod »).
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Deux gardes cumulees, jamais une seule :
+    #   - la branche, et jamais une pull request : une PR d'un depot tiers
+    #     deploierait du code non relu ;
+    #   - la variable de depot DEPLOIEMENT_PROD, comparee a « oui ».
+    #     Absente, GitHub la rend comme une chaine vide et le job est
+    #     ignore : ne rien deployer est le defaut. Une variable plutot
+    #     qu'un secret — elle se lit dans un `if:`, sans rien de confidentiel.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOIEMENT_PROD == 'oui'
     runs-on: ubuntu-latest
 
     # Deux deploiements simultanes visent le meme stack sur l'hote : on
@@ -198,7 +201,7 @@ jobs:
           [ -n "$EMPREINTES" ]  || manquants="$manquants DEPLOIEMENT_KNOWN_HOSTS"
           if [ -n "$manquants" ]; then
             echo "Secrets manquants :$manquants" >&2
-            echo "Les poser avec : sh .claude/scripts/installer-deploiement.sh projet prod" >&2
+            echo "Les poser avec : sh outils/installer-deploiement.sh projet prod" >&2
             exit 1
           fi
 
@@ -233,6 +236,88 @@ jobs:
         env:
           HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
           UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
+        run: |
+          ssh -i ~/.ssh/id_deploiement \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$UTILISATEUR@$HOTE" deployer
+
+  deploiement-staging:
+    name: Deploiement - staging
+    needs: qualite
+    # Deux gardes cumulees, jamais une seule :
+    #   - la branche, et jamais une pull request : une PR d'un depot tiers
+    #     deploierait du code non relu ;
+    #   - la variable de depot DEPLOIEMENT_STAGING, comparee a « oui ».
+    #     Absente, GitHub la rend comme une chaine vide et le job est
+    #     ignore : ne rien deployer est le defaut. Une variable plutot
+    #     qu'un secret — elle se lit dans un `if:`, sans rien de confidentiel.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.DEPLOIEMENT_STAGING == 'oui'
+    runs-on: ubuntu-latest
+
+    # Deux deploiements simultanes visent le meme stack sur l'hote : on
+    # attend son tour, on ne coupe jamais un deploiement en cours.
+    concurrency:
+      group: deploiement-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      # GitHub remplace un secret absent par une chaine vide sans rien
+      # signaler : ssh "@" produit alors une page d'usage illisible au lieu
+      # d'une erreur.
+      - name: Controler la presence des secrets
+        env:
+          HOTE: ${{ secrets.STAGING_DEPLOIEMENT_HOTE }}
+          UTILISATEUR: ${{ secrets.STAGING_DEPLOIEMENT_UTILISATEUR }}
+          CLE: ${{ secrets.STAGING_DEPLOIEMENT_CLE_PRIVEE }}
+          EMPREINTES: ${{ secrets.STAGING_DEPLOIEMENT_KNOWN_HOSTS }}
+        run: |
+          manquants=""
+          [ -n "$HOTE" ]        || manquants="$manquants STAGING_DEPLOIEMENT_HOTE"
+          [ -n "$UTILISATEUR" ] || manquants="$manquants STAGING_DEPLOIEMENT_UTILISATEUR"
+          [ -n "$CLE" ]         || manquants="$manquants STAGING_DEPLOIEMENT_CLE_PRIVEE"
+          [ -n "$EMPREINTES" ]  || manquants="$manquants STAGING_DEPLOIEMENT_KNOWN_HOSTS"
+          if [ -n "$manquants" ]; then
+            echo "Secrets manquants :$manquants" >&2
+            echo "Les poser avec : sh outils/installer-deploiement.sh projet staging" >&2
+            exit 1
+          fi
+
+      - name: Preparer SSH
+        env:
+          CLE: ${{ secrets.STAGING_DEPLOIEMENT_CLE_PRIVEE }}
+          EMPREINTES: ${{ secrets.STAGING_DEPLOIEMENT_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CLE" > ~/.ssh/id_deploiement
+          chmod 600 ~/.ssh/id_deploiement
+          # Une cle illisible (collee sans ses lignes BEGIN/END, tronquee, ou la cle
+          # publique a la place) n'est pas presentee au serveur, qui repond alors
+          # seulement « Permission denied (publickey,password) » : on le dit ici.
+          ssh-keygen -y -f ~/.ssh/id_deploiement >/dev/null 2>&1 || {
+            echo "STAGING_DEPLOIEMENT_CLE_PRIVEE n'est pas une cle privee SSH lisible." >&2
+            echo "La recoller en entier, lignes BEGIN et END comprises : cat ~/.ssh/<projet>_<env>_actions" >&2
+            exit 1
+          }
+          # L'empreinte de la cle publique n'a rien de secret : elle se compare a celle du
+          # serveur (ssh-keygen -lf ~/.ssh/<projet>_<env>_actions.pub) pour verifier que le
+          # secret contient bien la cle autorisee, et non celle d'un autre projet.
+          echo "Empreinte de la cle de deploiement : $(ssh-keygen -y -f ~/.ssh/id_deploiement | ssh-keygen -lf - | cut -d' ' -f2)"
+          # Empreinte epinglee, jamais StrictHostKeyChecking=no : ce serait
+          # accepter n'importe quel serveur a cette adresse.
+          printf '%s\n' "$EMPREINTES" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # La logique vit sur l'hote : la cle est restreinte a ce seul script
+      # par une forced command dans authorized_keys.
+      - name: Declencher le deploiement
+        env:
+          HOTE: ${{ secrets.STAGING_DEPLOIEMENT_HOTE }}
+          UTILISATEUR: ${{ secrets.STAGING_DEPLOIEMENT_UTILISATEUR }}
         run: |
           ssh -i ~/.ssh/id_deploiement \
               -o IdentitiesOnly=yes \
