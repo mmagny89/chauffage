@@ -41,7 +41,7 @@ jobs:
     name: Cohérence du dépôt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       # Plus de « || true » : il avalait un composer.json reellement
@@ -68,7 +68,7 @@ jobs:
     name: Audit des dépendances
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       # Bloquant : « cmd || true » avalerait une vulnerabilite connue.
@@ -83,7 +83,7 @@ jobs:
     needs: coherence
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       # Une porte ignoree doit se voir sans ouvrir le job : sinon elle le
@@ -104,7 +104,7 @@ jobs:
     needs: coherence
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       - name: Analyse statique
@@ -128,7 +128,7 @@ jobs:
     needs: coherence
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       - name: Frontieres du code
@@ -162,7 +162,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       # Les tests fonctionnels touchent la base : le schema de test (suffixe _test
@@ -228,7 +228,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/php
 
       - name: Schema en phase avec les entites

@@ -19,7 +19,7 @@ runs:
         coverage: none
 
     - name: Cache des dependances Composer
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: app/vendor
         key: composer-${{ runner.os }}-php${{ inputs.php-version }}-${{ hashFiles('app/composer.lock') }}
