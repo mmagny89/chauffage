@@ -17,7 +17,7 @@ Serveur staging/prod : partage. Traefik en frontal (reseau externe `traefik`), T
 | `compose.dev.yml` | Ajoute `mailpit`, qui retient les emails de developpement |
 | `compose.dev.yml` / `compose.staging.yml` / `compose.prod.yml` | Overrides par environnement |
 | `docker/php/**` | Dockerfile, Caddyfile(s), scripts d'entrypoint/healthcheck/installation |
-| `outils/**` | Outillage d'exploitation, versionne car `.claude/` n'arrive pas sur le serveur |
+| `outils/**` | Outillage d'exploitation, versionne car `.claude/` n'arrive pas sur le serveur : `renseigner-secrets.sh`, `installer-deploiement.sh`, `diagnostic-traefik.sh`, `deployer.sh`, `sauvegarder.sh`, `tester-restauration.sh`, `sauvegarder-serveur.sh` |
 
 | `app/` | Code applicatif Symfony (installe apres coup) |
 
@@ -217,6 +217,37 @@ Traefik joint le mauvais reseau : verifier l'etiquette
 git pull
 docker compose -f compose.yml -f compose.<env>.yml --env-file .env.<env>.local up -d --build --wait
 ```
+
+### Sauvegardes
+
+La base est sauvegardee par `outils/sauvegarder.sh` (PostgreSQL ou MariaDB, selon le
+`.env`) : un export verifie, puis copie **hors du serveur** par rsync sur SSH.
+Staging et prod refusent de s'executer sans `BACKUP_REMOTE` : une sauvegarde qui reste
+sur la machine ne protege pas de sa perte.
+
+```sh
+BACKUP_REMOTE=sauvegarde@hote:/srv/sauvegardes/<projet>/ sh outils/sauvegarder.sh prod
+```
+
+Une execution par jour depuis la crontab de l'utilisateur de deploiement, avec une cle SSH
+propre restreinte a la destination. `BACKUP_KEEP_DAYS` (14 par defaut) regle la retention
+locale ; celle de la destination releve de la destination, qui doit etre chiffree au repos :
+l'export contient des donnees personnelles.
+
+**Prouver qu'on sait restaurer** — apres tout changement de version du moteur, et
+regulierement sur une sauvegarde de production recuperee depuis la destination :
+
+```sh
+sh outils/tester-restauration.sh sauvegardes/<fichier>
+```
+
+Il restaure dans une base jetable (supprimee a la sortie) et controle les tables et, pour
+une application a migrations Doctrine, l'alignement avec le code. Une sauvegarde jamais
+restauree n'est qu'une hypothese.
+
+**Hors perimetre** : les volumes de fichiers (pieces deposees par les utilisateurs, medias)
+ne sont pas dans l'export de la base. Les sauvegarder a part des qu'ils portent des donnees
+qu'on ne sait pas regenerer.
 
 ### Si vous deplacez ou renommez le clone
 
