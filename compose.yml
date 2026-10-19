@@ -17,6 +17,8 @@ services:
         GROUP_ID: ${GROUP_ID}
     image: chauffage-php:${TARGET}
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@database:5432/${POSTGRES_DB}?serverVersion=${POSTGRES_VERSION}&charset=utf8
       RUN_MIGRATIONS: ${RUN_MIGRATIONS}
@@ -43,6 +45,8 @@ services:
     container_name: chauffage-${ENV:?ENV est requis — suffixe des noms de conteneurs, reseau et volumes. Le declarer dans le fichier de secrets (ENV=prod) ou le .env racine (ENV=dev)}-database
     image: postgres:${POSTGRES_VERSION}-alpine
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
