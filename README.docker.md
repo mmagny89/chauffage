@@ -137,6 +137,36 @@ docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.local up 
 `RUN_MIGRATIONS=0` en production : mise a jour de schema jouee
 explicitement au deploiement, jamais au demarrage du conteneur.
 
+### Deploiement continu depuis GitHub
+
+Une fois le clone en place, poser les acces du deploiement automatique (cle
+Actions, forced command, empreinte du serveur) :
+
+```sh
+sh outils/installer-deploiement.sh serveur              # une fois par serveur
+sh outils/installer-deploiement.sh projet prod          # depuis la racine du clone de prod
+sh outils/installer-deploiement.sh projet staging       # depuis la racine du clone de PPD
+```
+
+Le script affiche ce qu'il faut coller dans GitHub, **Settings → Secrets and
+variables → Actions** :
+
+| | Production | Pre-production |
+|---|---|---|
+| Secrets | `DEPLOIEMENT_HOTE`, `DEPLOIEMENT_UTILISATEUR`, `DEPLOIEMENT_CLE_PRIVEE`, `DEPLOIEMENT_KNOWN_HOSTS` | les memes, prefixes de `STAGING_` |
+| Variable | `DEPLOIEMENT_PROD = oui` | `DEPLOIEMENT_STAGING = oui` |
+
+**La variable est l'interrupteur.** Absente ou differente de `oui`, le job de
+deploiement est ignore : le depot construit et verifie, il ne livre rien, et
+suspendre un deploiement ne demande pas de toucher aux secrets. Les deux jeux de
+secrets ne sont pas interchangeables — chaque cle est figee sur son
+environnement par sa forced command.
+
+**La liste complete de ce qui se configure dans GitHub — et dans quel ordre —
+est dans `GITHUB.md`**, a la racine du projet : branches, acces du serveur au
+depot, secrets, reglages Actions, protection des branches, Dependabot, et un
+recapitulatif en cases a cocher.
+
 ### Renseigner les secrets — a faire AVANT le premier build
 
 Les variables obligatoires sont declarees `${VAR:?}` : `docker compose
