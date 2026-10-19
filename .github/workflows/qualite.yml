@@ -1,7 +1,12 @@
 # Portes qualite et deploiement.
 #
-# Portes : skill ci-pipeline-standards, ordre par cout croissant.
-# Contraintes d'infrastructure : .claude/rules/stack-conventions.md, section 22.
+# Une porte = un job, nomme par ce qu'il prouve (skill
+# ci-pipeline-standards). Les portes s'enchainent par cout croissant, et
+# celles qui ne se doivent rien tournent en parallele.
+# Contraintes d'infrastructure : .claude/rules/stack-conventions.md, section ci/qualite.
+#
+# Le nom du workflow est le texte du badge du README (badges-readme.md) :
+# il est commun a tous les depots de l'agence et ne se renomme pas.
 name: Qualité et déploiement
 
 on:
@@ -11,27 +16,135 @@ on:
     branches: [main, develop]
 
 # Le code applicatif vit dans app/, la racine ne porte que l'infrastructure
-# (section 1). Le job de deploiement, qui ne fait aucun checkout, remet ce
-# chemin a la racine.
+# (section manifeste/fichiers). Les jobs qui ne font aucun checkout — agregateur et
+# deploiement — remettent ce chemin a la racine.
 defaults:
   run:
     working-directory: app
 
 env:
   # Suit PHP_VERSION du .env racine — jamais plus recente que l'image de
-  # production. Toute montee de version touche les deux fichiers.
+  # production. Toute montee de version touche les deux fichiers, plus le
+  # defaut de .github/actions/php/action.yml.
   PHP_VERSION: '8.5'
 
   # La CI n'utilise pas Docker Compose : rien n'injecte les variables du
   # conteneur. Sans celles-ci, le post-install-cmd de Composer echoue sur
-  # « Environment variable not found », y compris dans les etapes qui ne
+  # « Environment variable not found », y compris dans les portes qui ne
   # touchent jamais la base.
   APP_ENV: test
   DATABASE_URL: 'postgresql://app:app@127.0.0.1:5432/app?serverVersion=18&charset=utf8'
 
 jobs:
-  qualite:
-    name: Portes qualite
+  # --- Porte 1 — rien en amont : c'est la moins chere, elle garde les autres.
+  coherence:
+    name: Cohérence du dépôt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
+
+      # Plus de « || true » : il avalait un composer.json reellement
+      # invalide. La garde sur le fichier suffit.
+      - name: Coherence de composer.json
+        run: |
+          if [ -f composer.json ]; then
+            composer validate --strict --no-check-publish
+          else
+            echo "composer.json absent — etape ignoree."
+          fi
+
+      - name: Lints Symfony
+        run: |
+          [ -f bin/console ] || { echo "bin/console absent — ignore."; exit 0; }
+          php bin/console lint:twig templates 2>/dev/null || true
+          php bin/console lint:yaml config
+          php bin/console lint:container
+
+  # --- Porte 2 — ne depend de rien : une vulnerabilite connue est vraie que
+  # le code soit bien indente ou non, et c'est la seule porte dont l'echec
+  # peut exiger une action le jour meme.
+  securite:
+    name: Audit des dépendances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
+
+      # Bloquant : « cmd || true » avalerait une vulnerabilite connue.
+      - name: Audit des dependances
+        run: |
+          [ -f composer.lock ] || { echo "composer.lock absent — ignore."; exit 0; }
+          composer audit
+
+  # --- Porte 3
+  style:
+    name: Style de code
+    needs: coherence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
+
+      # Une porte ignoree doit se voir sans ouvrir le job : sinon elle le
+      # reste pour toujours. D'ou le resume d'execution, lisible depuis la
+      # pull request.
+      - name: Style du code
+        run: |
+          if [ -x vendor/bin/php-cs-fixer ]; then
+            vendor/bin/php-cs-fixer fix --dry-run --diff
+          else
+            echo "⊘ **Style de code** — PHP CS Fixer absent. L'activer : \`composer require --dev friendsofphp/php-cs-fixer\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "PHP CS Fixer absent — porte ignoree."
+          fi
+
+  # --- Porte 4
+  analyse:
+    name: Analyse statique
+    needs: coherence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
+
+      - name: Analyse statique
+        run: |
+          if [ -x vendor/bin/phpstan ]; then
+            # phpstan-symfony lit le conteneur compile en environnement
+            # dev, chemin fige dans phpstan.neon. La CI tournant en
+            # APP_ENV=test, var/cache/dev n'existe pas sans ce
+            # rechauffage et l'analyse echoue sur « Container ... does
+            # not exist ».
+            [ -f bin/console ] && php bin/console cache:warmup --env=dev
+            vendor/bin/phpstan analyse --no-progress --error-format=github
+          else
+            echo "⊘ **Analyse statique** — PHPStan absent. L'activer : \`composer require --dev phpstan/phpstan\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "PHPStan absent — porte ignoree."
+          fi
+
+  # --- Porte 5 — frontieres entre couches ou modules.
+  frontieres:
+    name: Frontières du code
+    needs: coherence
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
+
+      - name: Frontieres du code
+        run: |
+          if [ -x vendor/bin/deptrac ] && [ -f deptrac.yaml ]; then
+            vendor/bin/deptrac analyse --no-progress
+          else
+            echo "⊘ **Frontières du code** — Deptrac non configuré. L'activer : \`composer require --dev deptrac/deptrac\`, puis écrire \`deptrac.yaml\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "Deptrac non configure — porte ignoree."
+          fi
+
+  # --- Porte 6 — la plus chere : elle attend que le code soit propre et
+  # analyse avant d'allumer une base de donnees.
+  tests:
+    name: Tests unitaires et d'intégration
+    needs: [style, analyse]
     runs-on: ubuntu-latest
     # Suit POSTGRES_VERSION du .env racine, comme PHP_VERSION ci-dessus.
     services:
@@ -50,215 +163,131 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
 
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ env.PHP_VERSION }}
-          extensions: pdo_pgsql, intl, zip
-          coverage: none
-
-      - name: Cache des dependances Composer
-        uses: actions/cache@v4
-        with:
-          path: app/vendor
-          key: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-${{ hashFiles('app/composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-php${{ env.PHP_VERSION }}-
-
-      - name: Installation des dependances
-        run: |
-          if [ -f composer.json ]; then
-            composer install --prefer-dist --no-progress --no-interaction
-          else
-            echo "Application pas encore installee — rien a verifier."
-          fi
-
-      # Chaque etape est ignoree tant que son outil n'est pas installe, et
-      # dit comment l'installer. Le workflow grandit avec le projet.
-      - name: Coherence de composer.json
-        run: '[ -f composer.json ] && composer validate --strict --no-check-publish || true'
-
-      - name: Lints Symfony
-        run: |
-          [ -f bin/console ] || { echo "bin/console absent — ignore."; exit 0; }
-          php bin/console lint:twig templates 2>/dev/null || true
-          php bin/console lint:yaml config
-          php bin/console lint:container
-
-      # Bloquant : « cmd || true » avalerait une vulnerabilite connue.
-      - name: Audit des dependances
-        run: |
-          [ -f composer.lock ] || { echo "composer.lock absent — ignore."; exit 0; }
-          composer audit
-
-      - name: Style du code
-        run: |
-          if [ -x vendor/bin/php-cs-fixer ]; then
-            vendor/bin/php-cs-fixer fix --dry-run --diff
-          else
-            echo "PHP CS Fixer absent — etape ignoree."
-          fi
-
-      - name: Analyse statique
-        run: |
-          if [ -x vendor/bin/phpstan ]; then
-            # phpstan-symfony lit le conteneur compile en environnement
-            # dev, chemin fige dans phpstan.neon. La CI tournant en
-            # APP_ENV=test, var/cache/dev n'existe pas sans ce
-            # rechauffage et l'analyse echoue sur « Container ... does
-            # not exist ».
-            [ -f bin/console ] && php bin/console cache:warmup --env=dev
-            vendor/bin/phpstan analyse --no-progress --error-format=github
-          else
-            echo "PHPStan absent — etape ignoree."
-            echo "Pour l'activer : composer require --dev phpstan/phpstan"
-          fi
-
-      # Les tests fonctionnels touchent la base : le schema de test (suffixe _test)
-      # se construit par les migrations, comme en production.
+      # Les tests fonctionnels touchent la base : le schema de test (suffixe _test
+      # de Doctrine) se construit par les migrations, comme en production. Sans
+      # cette etape, tout test qui ecrit echoue sur « relation ... does not exist »,
+      # alors que la base de developpement, elle, est a jour.
       - name: Base de test
         run: |
           ls migrations/*.php >/dev/null 2>&1 || { echo "Aucune migration — etape ignoree."; exit 0; }
           php bin/console doctrine:database:create --env=test --if-not-exists --no-interaction
           php bin/console doctrine:migrations:migrate --env=test --no-interaction
 
-      # Sans feuille de style compilee, toute page echoue au rendu : ~180 tests en
-      # erreur et des dizaines de Mo de journal, que GitHub tronque (« This step has
-      # been truncated due to its large size »). var/tailwind est ignore par git.
-      - name: CSS (Tailwind)
+      # Les gabarits referencent la feuille de style : sans compilation, toute
+      # page echoue au rendu sur « Unable to find asset "tailwindcss" » et
+      # des dizaines de tests tombent d'un coup. Ignoree sans le bundle.
+      - name: Compilation de la feuille de style
         run: |
+          [ -f bin/console ] || { echo "bin/console absent — ignore."; exit 0; }
           if php bin/console list tailwind --raw 2>/dev/null | grep -q '^tailwind:build'; then
             php bin/console tailwind:build
           else
             echo "Bundle Tailwind absent — etape ignoree."
           fi
 
+      # symfony/test-pack depose bin/phpunit, qui prepare l'environnement de
+      # test ; vendor/bin/phpunit n'existe que si phpunit/phpunit est requis
+      # en direct. Les deux sont acceptes, et la suite ne tourne qu'une fois :
+      # la rejouer apres un echec doublerait un journal que GitHub tronque.
       - name: Tests
         run: |
-          if [ -x bin/phpunit ] || [ -x vendor/bin/phpunit ]; then
-            # Une seule execution : rejouer la suite apres un echec doublerait le journal.
+          if [ -f bin/phpunit ]; then
             php bin/phpunit
+          elif [ -x vendor/bin/phpunit ]; then
+            vendor/bin/phpunit
           else
-            echo "PHPUnit absent — etape ignoree."
-            echo "Pour l'activer : composer require --dev symfony/test-pack"
+            echo "⊘ **Tests** — PHPUnit absent. L'activer : \`composer require --dev symfony/test-pack\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "PHPUnit absent — porte ignoree."
           fi
 
-      # Base dediee : une suite de tests construit souvent son schema
-      # directement, sans passer par les migrations. Rejouees sur la meme
-      # base, celles-ci echoueraient sur « table ... already exists » — un
-      # faux echec qui ne dit rien de l'etat reel des migrations.
-      - name: Schema en phase avec les entites
+  # --- Porte 7 — job distinct, et non une etape du precedent : une suite de
+  # tests construit souvent son schema directement, sans passer par les
+  # migrations. Rejouees sur la meme base, celles-ci echoueraient sur
+  # « table ... already exists » — un faux echec qui ne dit rien de l'etat
+  # reel des migrations. Un job separe recoit une base neuve, ce qui
+  # supprime la seconde URL de base qu'il fallait auparavant bricoler.
+  migrations:
+    name: Schéma et migrations
+    needs: coherence
+    runs-on: ubuntu-latest
+    # Suit POSTGRES_VERSION du .env racine, comme PHP_VERSION ci-dessus.
+    services:
+      database:
+        image: postgres:18-alpine
         env:
-          DATABASE_URL: 'postgresql://app:app@127.0.0.1:5432/migrations?serverVersion=18&charset=utf8'
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/php
+
+      - name: Schema en phase avec les entites
         run: |
           [ -f bin/console ] || { echo "bin/console absent — ignore."; exit 0; }
-          # Seule l'absence reelle de migrations fait passer l'etape : un echec de
+          # Seule l'absence reelle de migrations fait passer la porte : un echec de
           # migration l'annoncait auparavant comme une absence, en vert.
           if ! ls migrations/*.php >/dev/null 2>&1; then
-            echo "Aucune migration Doctrine — etape ignoree."; exit 0
+            echo "Aucune migration Doctrine — porte ignoree."; exit 0
           fi
           php bin/console doctrine:database:create --if-not-exists --no-interaction
           php bin/console doctrine:migrations:migrate --no-interaction
           php bin/console doctrine:schema:validate
 
-  deploiement-prod:
-    name: Deploiement
-    needs: qualite
-    # Deux gardes cumulees, jamais une seule :
-    #   - la branche, et jamais une pull request : une PR d'un depot tiers
-    #     deploierait du code non relu ;
-    #   - la variable de depot DEPLOIEMENT_PROD, comparee a « oui ».
-    #     Absente, GitHub la rend comme une chaine vide et le job est
-    #     ignore : ne rien deployer est le defaut. Une variable plutot
-    #     qu'un secret — elle se lit dans un `if:`, sans rien de confidentiel.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOIEMENT_PROD == 'oui'
+  # --- Agregateur : un seul controle requis par la protection de branche.
+  # Ajouter ou renommer une porte ne casse plus la regle GitHub en silence.
+  portes:
+    name: Portes qualité
+    needs: [coherence, securite, style, analyse, frontieres, tests, migrations]
+    if: always()
     runs-on: ubuntu-latest
-
-    # Deux deploiements simultanes visent le meme stack sur l'hote : on
-    # attend son tour, on ne coupe jamais un deploiement en cours.
-    concurrency:
-      group: deploiement-${{ github.ref_name }}
-      cancel-in-progress: false
-
     defaults:
       run:
         working-directory: .
-
     steps:
-      # GitHub remplace un secret absent par une chaine vide sans rien
-      # signaler : ssh "@" produit alors une page d'usage illisible au lieu
-      # d'une erreur.
-      - name: Controler la presence des secrets
+      # Par env: et non en interpolation directe — un resultat interpole est
+      # recopie dans le corps du script avant execution.
+      - name: Verdict des portes
         env:
-          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
-          UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
-          CLE: ${{ secrets.DEPLOIEMENT_CLE_PRIVEE }}
-          EMPREINTES: ${{ secrets.DEPLOIEMENT_KNOWN_HOSTS }}
+          RESULTATS: ${{ join(needs.*.result, ' ') }}
         run: |
-          manquants=""
-          [ -n "$HOTE" ]        || manquants="$manquants DEPLOIEMENT_HOTE"
-          [ -n "$UTILISATEUR" ] || manquants="$manquants DEPLOIEMENT_UTILISATEUR"
-          [ -n "$CLE" ]         || manquants="$manquants DEPLOIEMENT_CLE_PRIVEE"
-          [ -n "$EMPREINTES" ]  || manquants="$manquants DEPLOIEMENT_KNOWN_HOSTS"
-          if [ -n "$manquants" ]; then
-            echo "Secrets manquants :$manquants" >&2
-            echo "Les poser avec : sh outils/installer-deploiement.sh projet prod" >&2
-            exit 1
-          fi
+          echo "Resultats : $RESULTATS"
+          case "$RESULTATS" in
+            *failure*|*cancelled*)
+              echo "Au moins une porte qualite a cede." >&2
+              exit 1
+              ;;
+          esac
+          echo "Toutes les portes qualite sont vertes."
 
-      - name: Preparer SSH
-        env:
-          CLE: ${{ secrets.DEPLOIEMENT_CLE_PRIVEE }}
-          EMPREINTES: ${{ secrets.DEPLOIEMENT_KNOWN_HOSTS }}
-        run: |
-          mkdir -p ~/.ssh
-          printf '%s\n' "$CLE" > ~/.ssh/id_deploiement
-          chmod 600 ~/.ssh/id_deploiement
-          # Une cle illisible (collee sans ses lignes BEGIN/END, tronquee, ou la cle
-          # publique a la place) n'est pas presentee au serveur, qui repond alors
-          # seulement « Permission denied (publickey,password) » : on le dit ici.
-          ssh-keygen -y -f ~/.ssh/id_deploiement >/dev/null 2>&1 || {
-            echo "DEPLOIEMENT_CLE_PRIVEE n'est pas une cle privee SSH lisible." >&2
-            echo "La recoller en entier, lignes BEGIN et END comprises : cat ~/.ssh/<projet>_<env>_actions" >&2
-            exit 1
-          }
-          # L'empreinte de la cle publique n'a rien de secret : elle se compare a celle du
-          # serveur (ssh-keygen -lf ~/.ssh/<projet>_<env>_actions.pub) pour verifier que le
-          # secret contient bien la cle autorisee, et non celle d'un autre projet.
-          echo "Empreinte de la cle de deploiement : $(ssh-keygen -y -f ~/.ssh/id_deploiement | ssh-keygen -lf - | cut -d' ' -f2)"
-          # Empreinte epinglee, jamais StrictHostKeyChecking=no : ce serait
-          # accepter n'importe quel serveur a cette adresse.
-          printf '%s\n' "$EMPREINTES" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-      # La logique vit sur l'hote : la cle est restreinte a ce seul script
-      # par une forced command dans authorized_keys.
-      - name: Declencher le deploiement
-        env:
-          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
-          UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
-        run: |
-          ssh -i ~/.ssh/id_deploiement \
-              -o IdentitiesOnly=yes \
-              -o BatchMode=yes \
-              "$UTILISATEUR@$HOTE" deployer
 
   deploiement-staging:
-    name: Deploiement - staging
-    needs: qualite
-    # Deux gardes cumulees, jamais une seule :
-    #   - la branche, et jamais une pull request : une PR d'un depot tiers
-    #     deploierait du code non relu ;
-    #   - la variable de depot DEPLOIEMENT_STAGING, comparee a « oui ».
-    #     Absente, GitHub la rend comme une chaine vide et le job est
-    #     ignore : ne rien deployer est le defaut. Une variable plutot
-    #     qu'un secret — elle se lit dans un `if:`, sans rien de confidentiel.
+    name: Déploiement — staging
+    needs: portes
+    # Deux gardes cumulees :
+    #   - jamais sur une pull request, ni depuis une autre branche : une PR
+    #     d'un depot tiers deploierait du code non relu ;
+    #   - la variable d'activation du depot. Absente, GitHub la rend comme
+    #     une chaine vide et le job est ignore : un depot qui ne deploie pas
+    #     garde le meme workflow sans rien livrer. Comparaison a « oui » et
+    #     non a « non vide », sinon DEPLOIEMENT_STAGING = non activerait le
+    #     deploiement.
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && vars.DEPLOIEMENT_STAGING == 'oui'
     runs-on: ubuntu-latest
 
     # Deux deploiements simultanes visent le meme stack sur l'hote : on
     # attend son tour, on ne coupe jamais un deploiement en cours.
     concurrency:
-      group: deploiement-${{ github.ref_name }}
+      group: deploiement-staging
       cancel-in-progress: false
 
     defaults:
@@ -295,17 +324,19 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "$CLE" > ~/.ssh/id_deploiement
           chmod 600 ~/.ssh/id_deploiement
-          # Une cle illisible (collee sans ses lignes BEGIN/END, tronquee, ou la cle
-          # publique a la place) n'est pas presentee au serveur, qui repond alors
-          # seulement « Permission denied (publickey,password) » : on le dit ici.
+          # Une cle illisible (collee sans ses lignes BEGIN/END, tronquee, ou la
+          # cle publique a la place) n'est pas presentee au serveur, qui repond
+          # alors seulement « Permission denied (publickey,password) » : on le
+          # dit ici, dans la seule etape ou la cause est encore visible.
           ssh-keygen -y -f ~/.ssh/id_deploiement >/dev/null 2>&1 || {
             echo "STAGING_DEPLOIEMENT_CLE_PRIVEE n'est pas une cle privee SSH lisible." >&2
             echo "La recoller en entier, lignes BEGIN et END comprises : cat ~/.ssh/<projet>_<env>_actions" >&2
             exit 1
           }
-          # L'empreinte de la cle publique n'a rien de secret : elle se compare a celle du
-          # serveur (ssh-keygen -lf ~/.ssh/<projet>_<env>_actions.pub) pour verifier que le
-          # secret contient bien la cle autorisee, et non celle d'un autre projet.
+          # L'empreinte de la cle publique n'a rien de secret : elle se compare a
+          # celle du serveur (ssh-keygen -lf ~/.ssh/<projet>_<env>_actions.pub)
+          # pour verifier que le secret contient bien la cle autorisee, et non
+          # celle d'un autre projet.
           echo "Empreinte de la cle de deploiement : $(ssh-keygen -y -f ~/.ssh/id_deploiement | ssh-keygen -lf - | cut -d' ' -f2)"
           # Empreinte epinglee, jamais StrictHostKeyChecking=no : ce serait
           # accepter n'importe quel serveur a cette adresse.
@@ -313,11 +344,98 @@ jobs:
           chmod 600 ~/.ssh/known_hosts
 
       # La logique vit sur l'hote : la cle est restreinte a ce seul script
-      # par une forced command dans authorized_keys.
+      # par une forced command dans authorized_keys. L'environnement
+      # deploye est fige par cette forced command, pas par ce qui suit.
       - name: Declencher le deploiement
         env:
           HOTE: ${{ secrets.STAGING_DEPLOIEMENT_HOTE }}
           UTILISATEUR: ${{ secrets.STAGING_DEPLOIEMENT_UTILISATEUR }}
+        run: |
+          ssh -i ~/.ssh/id_deploiement \
+              -o IdentitiesOnly=yes \
+              -o BatchMode=yes \
+              "$UTILISATEUR@$HOTE" deployer
+
+  deploiement-prod:
+    name: Déploiement — prod
+    needs: portes
+    # Deux gardes cumulees :
+    #   - jamais sur une pull request, ni depuis une autre branche : une PR
+    #     d'un depot tiers deploierait du code non relu ;
+    #   - la variable d'activation du depot. Absente, GitHub la rend comme
+    #     une chaine vide et le job est ignore : un depot qui ne deploie pas
+    #     garde le meme workflow sans rien livrer. Comparaison a « oui » et
+    #     non a « non vide », sinon DEPLOIEMENT_PROD = non activerait le
+    #     deploiement.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOIEMENT_PROD == 'oui'
+    runs-on: ubuntu-latest
+
+    # Deux deploiements simultanes visent le meme stack sur l'hote : on
+    # attend son tour, on ne coupe jamais un deploiement en cours.
+    concurrency:
+      group: deploiement-prod
+      cancel-in-progress: false
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      # GitHub remplace un secret absent par une chaine vide sans rien
+      # signaler : ssh "@" produit alors une page d'usage illisible au lieu
+      # d'une erreur.
+      - name: Controler la presence des secrets
+        env:
+          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
+          UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
+          CLE: ${{ secrets.DEPLOIEMENT_CLE_PRIVEE }}
+          EMPREINTES: ${{ secrets.DEPLOIEMENT_KNOWN_HOSTS }}
+        run: |
+          manquants=""
+          [ -n "$HOTE" ]        || manquants="$manquants DEPLOIEMENT_HOTE"
+          [ -n "$UTILISATEUR" ] || manquants="$manquants DEPLOIEMENT_UTILISATEUR"
+          [ -n "$CLE" ]         || manquants="$manquants DEPLOIEMENT_CLE_PRIVEE"
+          [ -n "$EMPREINTES" ]  || manquants="$manquants DEPLOIEMENT_KNOWN_HOSTS"
+          if [ -n "$manquants" ]; then
+            echo "Secrets manquants :$manquants" >&2
+            echo "Les poser avec : sh outils/installer-deploiement.sh projet prod" >&2
+            exit 1
+          fi
+
+      - name: Preparer SSH
+        env:
+          CLE: ${{ secrets.DEPLOIEMENT_CLE_PRIVEE }}
+          EMPREINTES: ${{ secrets.DEPLOIEMENT_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$CLE" > ~/.ssh/id_deploiement
+          chmod 600 ~/.ssh/id_deploiement
+          # Une cle illisible (collee sans ses lignes BEGIN/END, tronquee, ou la
+          # cle publique a la place) n'est pas presentee au serveur, qui repond
+          # alors seulement « Permission denied (publickey,password) » : on le
+          # dit ici, dans la seule etape ou la cause est encore visible.
+          ssh-keygen -y -f ~/.ssh/id_deploiement >/dev/null 2>&1 || {
+            echo "DEPLOIEMENT_CLE_PRIVEE n'est pas une cle privee SSH lisible." >&2
+            echo "La recoller en entier, lignes BEGIN et END comprises : cat ~/.ssh/<projet>_<env>_actions" >&2
+            exit 1
+          }
+          # L'empreinte de la cle publique n'a rien de secret : elle se compare a
+          # celle du serveur (ssh-keygen -lf ~/.ssh/<projet>_<env>_actions.pub)
+          # pour verifier que le secret contient bien la cle autorisee, et non
+          # celle d'un autre projet.
+          echo "Empreinte de la cle de deploiement : $(ssh-keygen -y -f ~/.ssh/id_deploiement | ssh-keygen -lf - | cut -d' ' -f2)"
+          # Empreinte epinglee, jamais StrictHostKeyChecking=no : ce serait
+          # accepter n'importe quel serveur a cette adresse.
+          printf '%s\n' "$EMPREINTES" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # La logique vit sur l'hote : la cle est restreinte a ce seul script
+      # par une forced command dans authorized_keys. L'environnement
+      # deploye est fige par cette forced command, pas par ce qui suit.
+      - name: Declencher le deploiement
+        env:
+          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
+          UTILISATEUR: ${{ secrets.DEPLOIEMENT_UTILISATEUR }}
         run: |
           ssh -i ~/.ssh/id_deploiement \
               -o IdentitiesOnly=yes \
