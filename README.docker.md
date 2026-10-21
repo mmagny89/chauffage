@@ -122,7 +122,7 @@ demarrage, sans quoi Let's Encrypt ne peut pas emettre le certificat.
 git clone -b develop git@github-chauffage:<compte>/chauffage.git <racine>/chauffage-ppd
 cd <racine>/chauffage-ppd
 cp .env.staging.local.dist .env.staging.local   # une fois, puis renseigner
-docker compose -f compose.yml -f compose.staging.yml --env-file .env.staging.local up -d --build --wait
+docker compose -f compose.yml -f compose.staging.yml --env-file .env.staging.local up -d --build --pull always --wait
 ```
 
 ### Production
@@ -131,7 +131,7 @@ docker compose -f compose.yml -f compose.staging.yml --env-file .env.staging.loc
 git clone -b main git@github-chauffage:<compte>/chauffage.git <racine>/chauffage-prod
 cd <racine>/chauffage-prod
 cp .env.prod.local.dist .env.prod.local         # une fois, puis renseigner
-docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.local up -d --build --wait
+docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.local up -d --build --pull always --wait
 ```
 
 `RUN_MIGRATIONS=0` en production : mise a jour de schema jouee
@@ -191,7 +191,8 @@ A la main, si vous preferez :
 openssl rand -hex 32                            # secret applicatif
 
 read -rs -p "Mot de passe : " MDP && echo       # jamais en argument : historique du shell
-docker run --rm -e MDP php:8.4-cli 	    php -r 'echo password_hash(getenv("MDP"), PASSWORD_BCRYPT, ["cost" => 13]), PHP_EOL;'
+docker run --rm -e MDP "php:$(sed -n 's/^PHP_VERSION=//p' .env)-cli" \
+	    php -r 'echo password_hash(getenv("MDP"), PASSWORD_BCRYPT, ["cost" => 13]), PHP_EOL;'
 unset MDP
 ```
 
@@ -215,7 +216,7 @@ Traefik joint le mauvais reseau : verifier l'etiquette
 
 ```sh
 git pull
-docker compose -f compose.yml -f compose.<env>.yml --env-file .env.<env>.local up -d --build --wait
+docker compose -f compose.yml -f compose.<env>.yml --env-file .env.<env>.local up -d --build --pull always --wait
 ```
 
 ### Sauvegardes

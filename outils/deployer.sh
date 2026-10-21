@@ -60,7 +60,10 @@ git merge --ff-only "origin/$BRANCHE"
 journal "Version deployee : $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
 journal "Construction et demarrage"
-$COMPOSE up -d --build --wait
+# --pull always : sans lui, `--build` reutilise l'image de base presente dans
+# le cache du serveur, et un correctif PHP publie entre-temps n'arrive jamais en
+# production — sans que ni le code ni le .env ne changent (CERTFR-2026-ALE-014).
+$COMPOSE up -d --build --pull always --wait
 
 # RUN_MIGRATIONS=0 en production (section 8) : la mise a jour de schema est une
 # etape explicite, jamais le demarrage du conteneur.
