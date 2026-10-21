@@ -23,7 +23,8 @@ defaults:
     working-directory: app
 
 env:
-  # Suit PHP_VERSION du .env racine — jamais plus recente que l'image de
+  # Suit la BRANCHE de PHP_VERSION du .env racine (setup-php ne prend que
+  # major.minor ; "update: true" amene le dernier correctif) — jamais plus recente que l'image de
   # production. Toute montee de version touche les deux fichiers, plus le
   # defaut de .github/actions/php/action.yml.
   PHP_VERSION: '8.5'
