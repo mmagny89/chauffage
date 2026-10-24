@@ -143,10 +143,15 @@ Une fois le clone en place, poser les acces du deploiement automatique (cle
 Actions, forced command, empreinte du serveur) :
 
 ```sh
+sh outils/installer-deploiement.sh utilisateur [nom]    # par root, une fois par serveur (defaut : deploy)
 sh outils/installer-deploiement.sh serveur              # une fois par serveur
 sh outils/installer-deploiement.sh projet prod          # depuis la racine du clone de prod
 sh outils/installer-deploiement.sh projet staging       # depuis la racine du clone de PPD
 ```
+
+A lancer sous un utilisateur de deploiement dedie, pas sous root
+(`sudo sh outils/installer-deploiement.sh utilisateur` le cree). L'URL du
+depot clone est en `git@github.com:`, de preference, pas en alias d'hote.
 
 Le script affiche ce qu'il faut coller dans GitHub, **Settings → Secrets and
 variables → Actions** :
