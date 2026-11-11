@@ -7,7 +7,7 @@
 #
 #   command="/docker/<projet>-prod/outils/deployer.sh prod",no-agent-forwarding,no-port-forwarding,no-pty,no-user-rc,no-X11-forwarding ssh-ed25519 AAAA... deploiement-github-<projet>
 #
-# La logique reste ici et non dans le workflow (conventions, section 22) : les
+# La logique reste ici et non dans le workflow (conventions, section ci/qualite) : les
 # chemins et les secrets ne quittent pas le serveur, et la cle confiee a GitHub
 # ne peut rien lancer d'autre.
 set -eu
@@ -25,7 +25,7 @@ esac
 
 # Le projet se deduit de l'emplacement du script, jamais d'un chemin en dur :
 # renommer ou deplacer le clone ne casse alors que la forced command, qui porte
-# de toute facon le chemin absolu (conventions, section 22b).
+# de toute facon le chemin absolu (conventions, section ci/deploiement).
 PROJET=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 SECRETS="$PROJET/.env.${ENVIRONNEMENT}.local"
 COMPOSE="docker compose -f compose.yml -f compose.${ENVIRONNEMENT}.yml --env-file $SECRETS"
@@ -59,13 +59,15 @@ git fetch --quiet origin "$BRANCHE"
 git merge --ff-only "origin/$BRANCHE"
 journal "Version deployee : $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
-journal "Construction et demarrage"
 # --pull always : sans lui, `--build` reutilise l'image de base presente dans
-# le cache du serveur, et un correctif PHP publie entre-temps n'arrive jamais en
-# production — sans que ni le code ni le .env ne changent (CERTFR-2026-ALE-014).
+# le cache du serveur. Un deploiement rebuildait donc l'application sur un
+# FrankenPHP/PHP telecharge des semaines plus tot, et un correctif PHP publie
+# entre-temps n'arrivait jamais en production — sans que ni le code ni le .env
+# ne changent, donc sans rien a voir dans le diff (CERTFR-2026-ALE-014).
+journal "Construction et demarrage"
 $COMPOSE up -d --build --pull always --wait
 
-# RUN_MIGRATIONS=0 en production (section 8) : la mise a jour de schema est une
+# RUN_MIGRATIONS=0 en production (section env/schema) : la mise a jour de schema est une
 # etape explicite, jamais le demarrage du conteneur.
 journal "Mise a jour du schema"
 $COMPOSE exec -T php php bin/console doctrine:migrations:migrate --no-interaction
